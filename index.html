@@ -10,9 +10,9 @@
 </head>
 <body>
     <header>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h1 id="main-title">Trip Tracker</h1>
-            <select id="groupView" onchange="handleGroupSwitch()" style="padding: 8px; border-radius: 5px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; max-width: 800px; margin: 0 auto;">
+            <h1 id="main-title" style="margin: 0; font-size: 1.5rem;">Trip Tracker</h1>
+            <select id="groupView" onchange="handleGroupSwitch()" style="padding: 8px; border-radius: 5px; font-weight: bold; background: #eee;">
                 <option value="Seniors">Seniors 2026</option>
                 <option value="Juniors">Juniors 2027</option>
             </select>
@@ -66,11 +66,11 @@
         <hr>
 
         <section id="display-area">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                <h2 id="currentGroupName">Seniors</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 id="currentGroupName" style="margin:0; color: #333;">Seniors</h2>
                 <div>
-                    <label for="sortOrder">Sort: </label>
-                    <select id="sortOrder" onchange="processAndRender(lastData)">
+                    <label for="sortOrder" style="font-size: 0.9rem;">Sort: </label>
+                    <select id="sortOrder" onchange="processAndRender(lastData)" style="font-size: 0.9rem;">
                         <option value="name">Name (A-Z)</option>
                         <option value="recent">Most Recent</option>
                         <option value="balance">Highest Balance</option>
