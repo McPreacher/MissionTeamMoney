@@ -44,7 +44,7 @@ async function fetchData() {
         processAndRender(data);
         return data; 
     } catch (error) {
-        console.error("Error:", error);
+        console.error("Error fetching data:", error);
     }
 }
 
@@ -54,7 +54,6 @@ async function handleGoalUpdate() {
     btn.disabled = true;
     btn.innerText = "Saving...";
     
-    // Instant re-render so colors change without waiting for network
     processAndRender(lastData);
     
     setTimeout(() => {
@@ -65,14 +64,16 @@ async function handleGoalUpdate() {
 
 // --- DELETE LOGIC ---
 async function deletePerson(name) {
+    console.log("Delete triggered for:", name);
     if (!confirm(`Are you sure you want to delete all records for ${name} in the ${groupView.value} group?`)) return;
+    
+    // UI Feedback: dim the cards
+    document.getElementById('studentCards').style.opacity = '0.4';
+    document.getElementById('chaperoneCards').style.opacity = '0.4';
     
     await sendToSheet({ name: name, action: 'DELETE', group: groupView.value });
     
-    // Visual feedback: clear cards while we wait for refresh
-    document.getElementById('studentCards').style.opacity = '0.5';
-    document.getElementById('chaperoneCards').style.opacity = '0.5';
-    
+    // Give the Google Sheet time to process before we fetch again
     setTimeout(fetchData, 1500);
 }
 
@@ -110,7 +111,6 @@ function processAndRender(data) {
     else if (sortType === 'recent') sortedNames.sort((a, b) => totals[b].lastId - totals[a].lastId);
     else if (sortType === 'balance') sortedNames.sort((a, b) => totals[b].total - totals[a].total);
 
-    // Update dropdown filtered to current group
     const dropdownNames = Object.keys(totals).sort();
     nameDropdown.innerHTML = '<option value="">-- Select Person --</option>';
     dropdownNames.forEach(name => {
@@ -187,7 +187,7 @@ async function sendToSheet(payload) {
                 action: payload.action || 'ADD'
             })
         });
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("POST Error:", e); }
 }
 
 function generateReport() {

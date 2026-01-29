@@ -124,7 +124,13 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     border-radius: 8px;
     border-left: 5px solid #ccc;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    position: relative; /* Required for trash can positioning */
+    position: relative;
+}
+
+/* Specific button handling for the card */
+.card button:not(.delete-btn):hover {
+    opacity: 1;
+    transform: scale(1.02);
 }
 
 /* THE TRASH CAN FIX */
@@ -132,24 +138,26 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     position: absolute;
     right: 5px;
     top: 5px;
-    background: none;
+    background: transparent !important;
     border: none;
     cursor: pointer;
-    font-size: 1.1rem;
-    opacity: 0.2; /* Subtle by default */
+    font-size: 1.2rem;
+    opacity: 0.3;
     padding: 10px;
-    transition: opacity 0.2s, transform 0.2s;
-    z-index: 10;
+    z-index: 99;
+    pointer-events: auto;
+    transition: transform 0.2s, opacity 0.2s;
 }
 
 .delete-btn:hover {
     opacity: 1 !important;
-    transform: scale(1.1);
+    transform: scale(1.3);
+    background: transparent !important;
 }
 
-/* PREVENT TEXT CLASH */
+/* THE HEADER SHIELD */
 .card-header {
-    margin-right: 40px; /* The "No-Fly Zone" for the trash can */
+    margin-right: 40px; /* Forces name to wrap before hitting the trash can */
     display: flex;
     justify-content: space-between;
     align-items: baseline;
