@@ -27,15 +27,19 @@ async function fetchData() {
         const response = await fetch(GOOGLE_SCRIPT_URL);
         const data = await response.json();
         processAndRender(data);
-        return data; // Return data so callers can await completion
+        return data; 
     } catch (error) {
         console.error("Error:", error);
     }
 }
 
-// Function to handle the Goal Update button with feedback
+// --- GOAL PERSISTENCE & UPDATING ---
 async function handleGoalUpdate() {
     const btn = document.getElementById('goalBtn');
+    
+    // Save the goal to the browser's local memory
+    localStorage.setItem('tripGoal', globalGoalInput.value);
+
     btn.disabled = true;
     const originalText = btn.innerText;
     btn.innerText = "Updating...";
@@ -171,4 +175,12 @@ async function sendToSheet(payload) {
     }
 }
 
-fetchData();
+// --- INITIALIZATION ---
+window.addEventListener('DOMContentLoaded', () => {
+    // Check if user has a previously set goal in this browser
+    const savedGoal = localStorage.getItem('tripGoal');
+    if (savedGoal) {
+        globalGoalInput.value = savedGoal;
+    }
+    fetchData();
+});
