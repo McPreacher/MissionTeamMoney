@@ -14,11 +14,9 @@ function handleGroupSwitch() {
     const group = groupView.value;
     document.getElementById('currentGroupName').innerText = group;
     
-    // Set group-specific goal from local storage
     const savedGoal = localStorage.getItem(`goal_${group}`) || "2300";
     globalGoalInput.value = savedGoal;
     
-    // Re-render everything based on the new group filter
     processAndRender(lastData);
 }
 
@@ -55,8 +53,10 @@ async function handleGoalUpdate() {
     localStorage.setItem(`goal_${groupView.value}`, globalGoalInput.value);
     btn.disabled = true;
     btn.innerText = "Saving...";
-    // Re-render to apply new goal to calculations
+    
+    // Instant re-render so colors change without waiting for network
     processAndRender(lastData);
+    
     setTimeout(() => {
         btn.disabled = false;
         btn.innerText = "Update Goal";
@@ -67,8 +67,11 @@ async function handleGoalUpdate() {
 async function deletePerson(name) {
     if (!confirm(`Are you sure you want to delete all records for ${name} in the ${groupView.value} group?`)) return;
     
-    // We pass 'action: DELETE' and the 'group' so the script knows exactly which rows to wipe
     await sendToSheet({ name: name, action: 'DELETE', group: groupView.value });
+    
+    // Visual feedback: clear cards while we wait for refresh
+    document.getElementById('studentCards').style.opacity = '0.5';
+    document.getElementById('chaperoneCards').style.opacity = '0.5';
     
     setTimeout(fetchData, 1500);
 }
@@ -76,16 +79,17 @@ async function deletePerson(name) {
 function processAndRender(data) {
     const studentContainer = document.getElementById('studentCards');
     const chaperoneContainer = document.getElementById('chaperoneCards');
-    const goal = parseFloat(globalGoalInput.value);
+    const goal = parseFloat(globalGoalInput.value) || 0;
     const sortType = document.getElementById('sortOrder').value;
     const currentGroup = groupView.value;
 
+    studentContainer.style.opacity = '1';
+    chaperoneContainer.style.opacity = '1';
     studentContainer.innerHTML = '';
     chaperoneContainer.innerHTML = '';
     
-    // 1. Filter and Aggregate data for the CURRENT GROUP ONLY
     const totals = data.reduce((acc, entry) => {
-        const entryGroup = entry.Group || 'Seniors'; // Default old data to Seniors
+        const entryGroup = entry.Group || 'Seniors'; 
         if (entryGroup !== currentGroup) return acc;
 
         if (!acc[entry.Name]) {
@@ -101,13 +105,12 @@ function processAndRender(data) {
         return acc;
     }, {});
 
-    // 2. Sorting
     let sortedNames = Object.keys(totals);
     if (sortType === 'name') sortedNames.sort();
     else if (sortType === 'recent') sortedNames.sort((a, b) => totals[b].lastId - totals[a].lastId);
     else if (sortType === 'balance') sortedNames.sort((a, b) => totals[b].total - totals[a].total);
 
-    // 3. Update Dropdown (Filtered to current group)
+    // Update dropdown filtered to current group
     const dropdownNames = Object.keys(totals).sort();
     nameDropdown.innerHTML = '<option value="">-- Select Person --</option>';
     dropdownNames.forEach(name => {
@@ -116,25 +119,19 @@ function processAndRender(data) {
         nameDropdown.appendChild(opt);
     });
 
-    // 4. Render Cards
     sortedNames.forEach(name => {
         const person = totals[name];
         const card = document.createElement('div');
         card.className = 'card';
-        card.style.position = 'relative';
 
         let balanceClass = person.total >= goal ? 'balance-green' : 'balance-red';
-        if (person.total === goal) balanceClass = 'balance-black';
+        if (person.total === goal && goal > 0) balanceClass = 'balance-black';
 
         card.innerHTML = `
-            <button onclick="deletePerson('${name}')" 
-                    style="position:absolute; right:10px; top:12px; background:none; border:none; cursor:pointer; font-size: 1.1rem; opacity: 0.4; padding: 5px;" 
-                    title="Delete ${name}">
-                🗑️
-            </button>
-            <div style="display: flex; justify-content: space-between; align-items: baseline; padding-right: 40px;">
-                <strong style="font-size: 1.1rem;">${name}</strong>
-                <span style="font-size: 0.8rem; color: #666;">${person.role}</span>
+            <button onclick="deletePerson('${name}')" class="delete-btn" title="Delete ${name}">🗑️</button>
+            <div class="card-header">
+                <strong class="card-name">${name}</strong>
+                <span class="card-role">${person.role}</span>
             </div>
             <hr style="border: 0; border-top: 1px dashed #ccc; margin: 8px 0;">
             <div style="margin-bottom: 10px;">
@@ -143,7 +140,7 @@ function processAndRender(data) {
             </div>
             <div class="history-section">
                 <ul style="font-size: 0.85rem; margin-top: 5px; padding-left: 20px; color: #444;">
-                    ${person.comments.map(c => `<li>${c}</li>`).join('') || '<li>No payments</li>'}
+                    ${person.comments.map(c => `<li>${c}</li>`).join('') || '<li>Registered</li>'}
                 </ul>
             </div>
         `;
@@ -202,8 +199,9 @@ function generateReport() {
     let html = `<html><head><title>${group} Report</title><style>body{font-family:sans-serif;padding:40px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ddd;padding:10px;}</style></head>
                 <body><h2>${group} Balance Report - ${new Date().toLocaleDateString()}</h2><p>Goal: $${goal.toFixed(2)}</p><table><thead><tr><th>Name</th><th>Paid</th><th>Status</th></tr></thead><tbody>`;
     [...studentCards, ...chaperoneCards].forEach(card => {
-        const name = card.querySelector('strong').innerText;
-        const paidText = card.querySelector('.balance-red, .balance-black, .balance-green').innerText;
+        const name = card.querySelector('.card-name').innerText;
+        const paidSpan = card.querySelector('.balance-red, .balance-black, .balance-green');
+        const paidText = paidSpan ? paidSpan.innerText : "$0.00";
         const paid = parseFloat(paidText.replace('$',''));
         html += `<tr><td>${name}</td><td>${paidText}</td><td>${paid >= goal ? 'PAID' : 'PENDING'}</td></tr>`;
     });
