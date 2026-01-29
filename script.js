@@ -64,17 +64,29 @@ async function handleGoalUpdate() {
 
 // --- DELETE LOGIC ---
 async function deletePerson(name) {
-    console.log("Delete triggered for:", name);
     if (!confirm(`Are you sure you want to delete all records for ${name} in the ${groupView.value} group?`)) return;
+
+    const cards = document.querySelectorAll('.card');
+    let targetCard = null;
     
-    // UI Feedback: dim the cards
-    document.getElementById('studentCards').style.opacity = '0.4';
-    document.getElementById('chaperoneCards').style.opacity = '0.4';
-    
+    cards.forEach(card => {
+        if (card.querySelector('.card-name').innerText === name) {
+            targetCard = card;
+        }
+    });
+
+    if (targetCard) {
+        targetCard.classList.add('card-loading');
+        const btn = targetCard.querySelector('.delete-btn');
+        btn.innerText = "⌛"; 
+        btn.style.opacity = "1";
+    }
+
     await sendToSheet({ name: name, action: 'DELETE', group: groupView.value });
-    
-    // Give the Google Sheet time to process before we fetch again
-    setTimeout(fetchData, 1500);
+
+    setTimeout(async () => {
+        await fetchData();
+    }, 2000);
 }
 
 function processAndRender(data) {
@@ -83,6 +95,10 @@ function processAndRender(data) {
     const goal = parseFloat(globalGoalInput.value) || 0;
     const sortType = document.getElementById('sortOrder').value;
     const currentGroup = groupView.value;
+
+    // --- SUMMARY TRACKERS ---
+    let runningTotal = 0;
+    let participantCount = 0;
 
     studentContainer.style.opacity = '1';
     chaperoneContainer.style.opacity = '1';
@@ -96,8 +112,13 @@ function processAndRender(data) {
         if (!acc[entry.Name]) {
             acc[entry.Name] = { role: entry.Role, total: 0, comments: [], lastId: 0 };
             participantRoles[entry.Name] = entry.Role;
+            participantCount++; // Increment count for unique name
         }
-        acc[entry.Name].total += parseFloat(entry.Amount || 0);
+
+        const amount = parseFloat(entry.Amount || 0);
+        acc[entry.Name].total += amount;
+        runningTotal += amount; // Increment group grand total
+
         if (entry.id > acc[entry.Name].lastId) acc[entry.Name].lastId = entry.id;
         
         if (entry.Comment && entry.Comment !== "Registration") {
@@ -105,6 +126,20 @@ function processAndRender(data) {
         }
         return acc;
     }, {});
+
+    // --- UPDATE SUMMARY UI ---
+    // Make sure these IDs exist in your HTML!
+    if(document.getElementById('groupTotal')) {
+        document.getElementById('groupTotal').innerText = `$${runningTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    }
+    if(document.getElementById('groupCount')) {
+        document.getElementById('groupCount').innerText = participantCount;
+    }
+    // Update the timestamp to now
+    if(document.getElementById('lastUpdated')) {
+        const now = new Date();
+        document.getElementById('lastUpdated').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
 
     let sortedNames = Object.keys(totals);
     if (sortType === 'name') sortedNames.sort();
