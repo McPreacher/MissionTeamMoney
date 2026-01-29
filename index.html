@@ -26,15 +26,10 @@
                     <div class="goal-setting" id="goalForm">
                         <label>$</label>
                         <input type="number" id="globalGoal" value="2300">
-                        <button id="goalBtn" onclick="handleGoalUpdate()">Update Goal</button>
+                        <button id="goalBtn" onclick="handleGoalUpdate()">Update</button>
                     </div>
                 </div>
                 
-                <div class="admin-section">
-                    <h4>Reports</h4>
-                    <button onclick="generateReport()" class="print-btn">🖨️ Generate PDF Report</button>
-                </div>
-
                 <div class="admin-section">
                     <h4>Add Participant</h4>
                     <form id="personForm">
@@ -45,6 +40,12 @@
                         </select>
                         <button type="submit">Register</button>
                     </form>
+                </div>
+
+                <div class="admin-section">
+                    <h4>Actions & Reports</h4>
+                    <button onclick="generateReport()" class="print-btn" style="margin-bottom: 10px;">🖨️ PDF Report</button>
+                    <button onclick="resetSystem()" style="background-color: #d9534f; color: white; width: 100%; border-radius: 4px; padding: 10px; font-weight: bold; border: none; cursor: pointer;">🚨 Reset Year</button>
                 </div>
             </div>
         </details>
@@ -77,10 +78,11 @@
                     </select>
                 </div>
             </div>
-            <div id="groupSummary" style="background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-around; font-weight: bold; color: #2e7d32; border: 1px solid #ccc;">
-                <div>Total Collected: <span id="groupTotal">$0.00</span></div>
-                <div>Participants: <span id="groupCount">0</span></div>
-                <div style="font-size: 0.8rem; color: #666;">Updated: <span id="lastUpdated">--:--</span></div>
+
+            <div id="groupSummary" style="background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-around; align-items: center; font-weight: bold; color: #2e7d32; border: 1px solid #ccc; flex-wrap: wrap; gap: 10px;">
+                <div>Total: <span id="groupTotal">$0.00</span></div>
+                <div>Count: <span id="groupCount">0</span></div>
+                <div style="font-size: 0.75rem; color: #666; font-weight: normal;">Refreshed: <span id="lastUpdated">--:--</span></div>
             </div>
 
             <div class="participant-group">
@@ -88,7 +90,7 @@
                 <div class="cards" id="studentCards"></div>
             </div>
             
-            <div class="participant-group">
+            <div class="participant-group" style="margin-top: 30px;">
                 <h3>Chaperones</h3>
                 <div class="cards" id="chaperoneCards"></div>
             </div>

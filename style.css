@@ -107,6 +107,7 @@ button {
     background-color: #333;
     color: white;
     cursor: pointer;
+    transition: background 0.2s;
 }
 
 button:hover { opacity: 0.85; }
@@ -125,12 +126,7 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     border-left: 5px solid #ccc;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     position: relative;
-}
-
-/* Specific button handling for the card */
-.card button:not(.delete-btn):hover {
-    opacity: 1;
-    transform: scale(1.02);
+    transition: transform 0.1s;
 }
 
 /* THE TRASH CAN FIX */
@@ -142,7 +138,7 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     border: none;
     cursor: pointer;
     font-size: 1.2rem;
-    opacity: 0.3;
+    opacity: 0.2;
     padding: 10px;
     z-index: 99;
     pointer-events: auto;
@@ -157,10 +153,10 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
 
 /* THE HEADER SHIELD */
 .card-header {
-    margin-right: 40px; /* Forces name to wrap before hitting the trash can */
+    margin-right: 40px; 
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
+    flex-direction: column; /* Better for mobile wrapping */
+    align-items: flex-start;
 }
 
 .card-name {
@@ -171,8 +167,12 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
 .card-role {
     font-size: 0.75rem;
     color: #777;
-    margin-left: 10px;
-    white-space: nowrap;
+    margin-top: 2px;
+}
+
+/* Summary Bar Styling */
+#groupSummary {
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .balance-red { color: #d9534f; font-weight: bold; }
@@ -183,4 +183,17 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     header, #entry-form, hr, button, select, #admin-panel summary, .delete-btn { display: none !important; }
     body { background: white; margin: 0; }
     .card { border: 1px solid #ddd; border-left: 5px solid #333; margin-bottom: 10px; page-break-inside: avoid; }
+}
+
+/* Pulsing animation for loading states */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
+
+.card-loading {
+    animation: pulse 1.5s infinite;
+    pointer-events: none;
+    filter: grayscale(1);
 }

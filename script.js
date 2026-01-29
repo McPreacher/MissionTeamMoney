@@ -62,7 +62,7 @@ async function handleGoalUpdate() {
     }, 500);
 }
 
-// --- DELETE LOGIC ---
+// --- DELETE & RESET LOGIC ---
 async function deletePerson(name) {
     if (!confirm(`Are you sure you want to delete all records for ${name} in the ${groupView.value} group?`)) return;
 
@@ -89,6 +89,23 @@ async function deletePerson(name) {
     }, 2000);
 }
 
+async function resetSystem() {
+    const confirm1 = confirm("⚠️ DANGER: You are about to erase ALL NAMES and ALL PAYMENTS from the entire system. This cannot be undone.");
+    if (!confirm1) return;
+
+    const confirm2 = confirm("FINAL WARNING: Are you absolutely sure? This will clear everything for Seniors and Juniors to start the new year.");
+    if (!confirm2) return;
+
+    // Visual feedback
+    document.body.style.opacity = "0.5";
+    document.body.style.pointerEvents = "none";
+
+    await sendToSheet({ action: 'RESET' });
+
+    alert("System has been reset. Starting fresh!");
+    location.reload(); // Reload to clear the UI completely
+}
+
 function processAndRender(data) {
     const studentContainer = document.getElementById('studentCards');
     const chaperoneContainer = document.getElementById('chaperoneCards');
@@ -96,7 +113,6 @@ function processAndRender(data) {
     const sortType = document.getElementById('sortOrder').value;
     const currentGroup = groupView.value;
 
-    // --- SUMMARY TRACKERS ---
     let runningTotal = 0;
     let participantCount = 0;
 
@@ -112,12 +128,12 @@ function processAndRender(data) {
         if (!acc[entry.Name]) {
             acc[entry.Name] = { role: entry.Role, total: 0, comments: [], lastId: 0 };
             participantRoles[entry.Name] = entry.Role;
-            participantCount++; // Increment count for unique name
+            participantCount++; 
         }
 
         const amount = parseFloat(entry.Amount || 0);
         acc[entry.Name].total += amount;
-        runningTotal += amount; // Increment group grand total
+        runningTotal += amount; 
 
         if (entry.id > acc[entry.Name].lastId) acc[entry.Name].lastId = entry.id;
         
@@ -127,15 +143,12 @@ function processAndRender(data) {
         return acc;
     }, {});
 
-    // --- UPDATE SUMMARY UI ---
-    // Make sure these IDs exist in your HTML!
     if(document.getElementById('groupTotal')) {
         document.getElementById('groupTotal').innerText = `$${runningTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     }
     if(document.getElementById('groupCount')) {
         document.getElementById('groupCount').innerText = participantCount;
     }
-    // Update the timestamp to now
     if(document.getElementById('lastUpdated')) {
         const now = new Date();
         document.getElementById('lastUpdated').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -185,7 +198,6 @@ function processAndRender(data) {
     });
 }
 
-// --- FORM SUBMISSIONS ---
 personForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('newName').value;
