@@ -27,7 +27,7 @@ async function fetchData() {
         const response = await fetch(GOOGLE_SCRIPT_URL);
         const data = await response.json();
         processAndRender(data);
-        return data; 
+        return data; // Required for the 'await' in handleGoalUpdate
     } catch (error) {
         console.error("Error:", error);
     }
@@ -175,9 +175,72 @@ async function sendToSheet(payload) {
     }
 }
 
+// --- REPORT GENERATION ---
+function generateReport() {
+    const goal = parseFloat(globalGoalInput.value);
+    const studentCards = document.querySelectorAll('#studentCards .card');
+    const chaperoneCards = document.querySelectorAll('#chaperoneCards .card');
+    
+    let reportWindow = window.open('', '_blank');
+    
+    let html = `
+        <html>
+        <head>
+            <title>Senior Trip Balance Report</title>
+            <style>
+                body { font-family: sans-serif; padding: 40px; color: #333; }
+                h2 { text-align: center; margin-bottom: 5px; }
+                .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                th { background-color: #f8f9fa; font-weight: bold; }
+                .status-paid { color: #2e7d32; font-weight: bold; }
+                .status-pending { color: #c62828; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <h2>Senior Trip 2026 Balance Report</h2>
+            <div class="subtitle">Generated: ${new Date().toLocaleDateString()}</div>
+            <p><strong>Official Trip Goal:</strong> $${goal.toFixed(2)}</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Total Paid</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+    [...studentCards, ...chaperoneCards].forEach(card => {
+        const name = card.querySelector('strong').innerText;
+        const role = card.querySelector('span').innerText;
+        const balanceText = card.querySelector('.balance-red, .balance-black, .balance-green').innerText;
+        const paid = parseFloat(balanceText.replace('$', ''));
+        const remaining = Math.max(0, goal - paid);
+        const status = paid >= goal ? '<span class="status-paid">PAID</span>' : '<span class="status-pending">PENDING</span>';
+
+        html += `
+            <tr>
+                <td>${name}</td>
+                <td>${role}</td>
+                <td>$${paid.toFixed(2)}</td>
+                <td>$${remaining.toFixed(2)}</td>
+                <td>${status}</td>
+            </tr>`;
+    });
+
+    html += `</tbody></table></body></html>`;
+
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+    setTimeout(() => { reportWindow.print(); }, 500);
+}
+
 // --- INITIALIZATION ---
 window.addEventListener('DOMContentLoaded', () => {
-    // Check if user has a previously set goal in this browser
     const savedGoal = localStorage.getItem('tripGoal');
     if (savedGoal) {
         globalGoalInput.value = savedGoal;
