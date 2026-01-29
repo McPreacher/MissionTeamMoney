@@ -9,6 +9,12 @@ const groupView = document.getElementById('groupView');
 let participantRoles = {};
 let lastData = []; 
 
+// --- AUTO-REFRESH (Conflict Prevention) ---
+// This keeps all open devices in sync every 30 seconds
+setInterval(() => {
+    fetchData(); 
+}, 30000);
+
 // --- GROUP MANAGEMENT ---
 function handleGroupSwitch() {
     const group = groupView.value;
@@ -35,13 +41,18 @@ function toggleLoading(formId, isLoading, message = "Processing...") {
     }
 }
 
-// --- DATA FETCHING ---
+// --- DATA FETCHING (Single Source of Truth) ---
 async function fetchData() {
     try {
         const response = await fetch(GOOGLE_SCRIPT_URL);
         const data = await response.json();
-        lastData = data; 
-        processAndRender(data);
+        
+        // Only re-render if the data has actually changed to save performance
+        if (JSON.stringify(data) !== JSON.stringify(lastData)) {
+            lastData = data; 
+            processAndRender(data);
+            console.log("Sync Complete: Data is fresh.");
+        }
         return data; 
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -83,10 +94,9 @@ async function deletePerson(name) {
     }
 
     await sendToSheet({ name: name, action: 'DELETE', group: groupView.value });
-
-    setTimeout(async () => {
-        await fetchData();
-    }, 2000);
+    
+    // Immediate sync after delete
+    setTimeout(fetchData, 1500);
 }
 
 async function resetSystem() {
@@ -96,14 +106,13 @@ async function resetSystem() {
     const confirm2 = confirm("FINAL WARNING: Are you absolutely sure? This will clear everything for Seniors and Juniors to start the new year.");
     if (!confirm2) return;
 
-    // Visual feedback
     document.body.style.opacity = "0.5";
     document.body.style.pointerEvents = "none";
 
     await sendToSheet({ action: 'RESET' });
 
     alert("System has been reset. Starting fresh!");
-    location.reload(); // Reload to clear the UI completely
+    location.reload(); 
 }
 
 function processAndRender(data) {
@@ -205,7 +214,7 @@ personForm.addEventListener('submit', async (e) => {
     toggleLoading('personForm', true, "Registering...");
     await sendToSheet({ name, role, amount: 0, comment: "Registration", group: groupView.value });
     personForm.reset();
-    setTimeout(async () => { await fetchData(); toggleLoading('personForm', false); }, 2000);
+    setTimeout(async () => { await fetchData(); toggleLoading('personForm', false); }, 1500);
 });
 
 moneyForm.addEventListener('submit', async (e) => {
@@ -216,10 +225,12 @@ moneyForm.addEventListener('submit', async (e) => {
     toggleLoading('moneyForm', true, "Posting...");
     await sendToSheet({ name, amount, comment, role: participantRoles[name], group: groupView.value });
     moneyForm.reset();
-    setTimeout(async () => { await fetchData(); toggleLoading('moneyForm', false); }, 2000);
+    setTimeout(async () => { await fetchData(); toggleLoading('moneyForm', false); }, 1500);
 });
 
 async function sendToSheet(payload) {
+    // Prevent interaction during save
+    document.body.style.cursor = "wait"; 
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
@@ -234,7 +245,14 @@ async function sendToSheet(payload) {
                 action: payload.action || 'ADD'
             })
         });
-    } catch (e) { console.error("POST Error:", e); }
+        // Post-save sync
+        setTimeout(fetchData, 1000);
+    } catch (e) { 
+        console.error("POST Error:", e);
+        alert("Sync failed. Check your connection.");
+    } finally {
+        document.body.style.cursor = "default";
+    }
 }
 
 function generateReport() {
