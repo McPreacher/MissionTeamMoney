@@ -3,25 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Senior Trip Tracker</title>
+    <title>Trip Tracker Pro</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%232e7d32'/><text x='50%25' y='50%25' text-anchor='middle' fill='white' font-size='50' dy='.3em' font-family='Arial'>$</text></svg>">
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
     <header>
-        <h1>Senior Trip 2026</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1 id="main-title">Trip Tracker</h1>
+            <select id="groupView" onchange="handleGroupSwitch()" style="padding: 8px; border-radius: 5px;">
+                <option value="Seniors">Seniors 2026</option>
+                <option value="Juniors">Juniors 2027</option>
+            </select>
+        </div>
         
         <details id="admin-panel">
             <summary>⚙️ Admin Settings & Management</summary>
             <div class="admin-content">
-                
                 <div class="admin-section">
-                    <h4>Trip Goal</h4>
+                    <h4>Current Group Goal</h4>
                     <div class="goal-setting" id="goalForm">
                         <label>$</label>
                         <input type="number" id="globalGoal" value="2300">
-                        <button id="goalBtn" onclick="handleGoalUpdate()">Update View</button>
+                        <button id="goalBtn" onclick="handleGoalUpdate()">Update Goal</button>
                     </div>
                 </div>
                 
@@ -41,7 +46,6 @@
                         <button type="submit">Register</button>
                     </form>
                 </div>
-
             </div>
         </details>
     </header>
@@ -53,9 +57,8 @@
                 <select id="nameDropdown" required>
                     <option value="">-- Select Person --</option>
                 </select>
-                
                 <input type="number" id="amount" placeholder="Amount ($)" required>
-                <input type="text" id="comment" placeholder="Comment (e.g. Donation)" required>
+                <input type="text" id="comment" placeholder="Comment" required>
                 <button type="submit">Post Payment</button>
             </form>
         </section>
@@ -63,13 +66,16 @@
         <hr>
 
         <section id="display-area">
-            <div style="margin-bottom: 15px; text-align: right; font-size: 0.9rem;">
-                <label for="sortOrder">Sort by: </label>
-                <select id="sortOrder" onchange="processAndRender(lastData)">
-                    <option value="name">Name (A-Z)</option>
-                    <option value="recent">Most Recent Payment</option>
-                    <option value="balance">Highest Balance</option>
-                </select>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <h2 id="currentGroupName">Seniors</h2>
+                <div>
+                    <label for="sortOrder">Sort: </label>
+                    <select id="sortOrder" onchange="processAndRender(lastData)">
+                        <option value="name">Name (A-Z)</option>
+                        <option value="recent">Most Recent</option>
+                        <option value="balance">Highest Balance</option>
+                    </select>
+                </div>
             </div>
 
             <div class="participant-group">
