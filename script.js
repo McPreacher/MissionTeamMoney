@@ -6,6 +6,7 @@ const nameDropdown = document.getElementById('nameDropdown');
 const globalGoalInput = document.getElementById('globalGoal');
 
 let participantRoles = {};
+let lastData = []; // Stores the latest data for re-sorting
 
 // --- HELPER: UI FEEDBACK ---
 function toggleLoading(formId, isLoading, message = "Processing...") {
@@ -26,8 +27,9 @@ async function fetchData() {
     try {
         const response = await fetch(GOOGLE_SCRIPT_URL);
         const data = await response.json();
+        lastData = data; // Cache data for sorting
         processAndRender(data);
-        return data; // Required for the 'await' in handleGoalUpdate
+        return data; 
     } catch (error) {
         console.error("Error:", error);
     }
@@ -36,14 +38,10 @@ async function fetchData() {
 // --- GOAL PERSISTENCE & UPDATING ---
 async function handleGoalUpdate() {
     const btn = document.getElementById('goalBtn');
-    
-    // Save the goal to the browser's local memory
     localStorage.setItem('tripGoal', globalGoalInput.value);
-
     btn.disabled = true;
     const originalText = btn.innerText;
     btn.innerText = "Updating...";
-
     try {
         await fetchData();
     } finally {
@@ -56,32 +54,52 @@ function processAndRender(data) {
     const studentContainer = document.getElementById('studentCards');
     const chaperoneContainer = document.getElementById('chaperoneCards');
     const goal = parseFloat(globalGoalInput.value);
+    const sortType = document.getElementById('sortOrder').value;
 
     studentContainer.innerHTML = '';
     chaperoneContainer.innerHTML = '';
     
+    // Process totals and track IDs for "recent" sorting
     const totals = data.reduce((acc, entry) => {
         if (!acc[entry.Name]) {
-            acc[entry.Name] = { role: entry.Role, total: 0, comments: [] };
+            acc[entry.Name] = { role: entry.Role, total: 0, comments: [], lastId: 0 };
             participantRoles[entry.Name] = entry.Role;
         }
         acc[entry.Name].total += parseFloat(entry.Amount || 0);
+        
+        // Track the highest ID (timestamp) for each person
+        if (entry.id > acc[entry.Name].lastId) {
+            acc[entry.Name].lastId = entry.id;
+        }
+
         if (entry.Comment && entry.Comment !== "Registration") {
             acc[entry.Name].comments.push(entry.Comment);
         }
         return acc;
     }, {});
 
-    const sortedNames = Object.keys(totals).sort();
+    // Sorting Logic
+    let sortedNames = Object.keys(totals);
+    if (sortType === 'name') {
+        sortedNames.sort();
+    } else if (sortType === 'recent') {
+        sortedNames.sort((a, b) => totals[b].lastId - totals[a].lastId);
+    } else if (sortType === 'balance') {
+        sortedNames.sort((a, b) => totals[b].total - totals[a].total);
+    }
+
+    // Update Dropdown (always alphabetical for ease of use)
+    const dropdownNames = Object.keys(totals).sort();
     nameDropdown.innerHTML = '<option value="">-- Select Person --</option>';
-    sortedNames.forEach(name => {
+    dropdownNames.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
         opt.textContent = name;
         nameDropdown.appendChild(opt);
     });
 
-    for (const name in totals) {
+    // Render Cards
+    sortedNames.forEach(name => {
         const person = totals[name];
         const card = document.createElement('div');
         card.className = 'card';
@@ -114,22 +132,17 @@ function processAndRender(data) {
 
         if (person.role === 'Student') studentContainer.appendChild(card);
         else chaperoneContainer.appendChild(card);
-    }
+    });
 }
 
 // --- FORM SUBMISSIONS ---
-
 personForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('newName').value;
     const role = document.getElementById('newRole').value;
-
     toggleLoading('personForm', true, "Adding...");
-
     await sendToSheet({ name, role, amount: 0, comment: "Registration" });
-    
     personForm.reset();
-    
     setTimeout(async () => {
         await fetchData();
         toggleLoading('personForm', false);
@@ -142,13 +155,9 @@ moneyForm.addEventListener('submit', async (e) => {
     const amount = document.getElementById('amount').value;
     const comment = document.getElementById('comment').value;
     const role = participantRoles[name] || "Student";
-
     toggleLoading('moneyForm', true, "Saving...");
-
     await sendToSheet({ name, amount, comment, role: role });
-
     moneyForm.reset();
-
     setTimeout(async () => {
         await fetchData();
         toggleLoading('moneyForm', false);
@@ -180,9 +189,7 @@ function generateReport() {
     const goal = parseFloat(globalGoalInput.value);
     const studentCards = document.querySelectorAll('#studentCards .card');
     const chaperoneCards = document.querySelectorAll('#chaperoneCards .card');
-    
     let reportWindow = window.open('', '_blank');
-    
     let html = `
         <html>
         <head>
@@ -221,7 +228,6 @@ function generateReport() {
         const paid = parseFloat(balanceText.replace('$', ''));
         const remaining = Math.max(0, goal - paid);
         const status = paid >= goal ? '<span class="status-paid">PAID</span>' : '<span class="status-pending">PENDING</span>';
-
         html += `
             <tr>
                 <td>${name}</td>
@@ -231,9 +237,7 @@ function generateReport() {
                 <td>${status}</td>
             </tr>`;
     });
-
     html += `</tbody></table></body></html>`;
-
     reportWindow.document.write(html);
     reportWindow.document.close();
     setTimeout(() => { reportWindow.print(); }, 500);

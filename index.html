@@ -63,6 +63,15 @@
         <hr>
 
         <section id="display-area">
+            <div style="margin-bottom: 15px; text-align: right; font-size: 0.9rem;">
+                <label for="sortOrder">Sort by: </label>
+                <select id="sortOrder" onchange="processAndRender(lastData)">
+                    <option value="name">Name (A-Z)</option>
+                    <option value="recent">Most Recent Payment</option>
+                    <option value="balance">Highest Balance</option>
+                </select>
+            </div>
+
             <div class="participant-group">
                 <h3>Students</h3>
                 <div class="cards" id="studentCards"></div>
