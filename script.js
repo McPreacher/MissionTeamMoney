@@ -27,8 +27,24 @@ async function fetchData() {
         const response = await fetch(GOOGLE_SCRIPT_URL);
         const data = await response.json();
         processAndRender(data);
+        return data; // Return data so callers can await completion
     } catch (error) {
         console.error("Error:", error);
+    }
+}
+
+// Function to handle the Goal Update button with feedback
+async function handleGoalUpdate() {
+    const btn = document.getElementById('goalBtn');
+    btn.disabled = true;
+    const originalText = btn.innerText;
+    btn.innerText = "Updating...";
+
+    try {
+        await fetchData();
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
     }
 }
 
@@ -113,7 +129,6 @@ personForm.addEventListener('submit', async (e) => {
     setTimeout(async () => {
         await fetchData();
         toggleLoading('personForm', false);
-        // Note: keeping admin panel open so they can add multiple names quickly
     }, 2000);
 });
 
