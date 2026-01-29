@@ -1,0 +1,16 @@
+{
+  "short_name": "TripTracker",
+  "name": "Senior Trip 2026 Money Tracker",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/263/263100.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#f4f4f9",
+  "display": "standalone",
+  "scope": "./",
+  "theme_color": "#333333"
+}

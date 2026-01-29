@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Senior Trip Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <header>
+        <h1>Senior Trip 2026</h1>
+        
+        <details id="admin-panel">
+            <summary>⚙️ Admin Settings & Management</summary>
+            <div class="admin-content">
+                
+                <div class="admin-section">
+                    <h4>Trip Goal</h4>
+                    <div class="goal-setting">
+                        <label>$</label>
+                        <input type="number" id="globalGoal" value="2300">
+                        <button onclick="fetchData()">Update View</button>
+                    </div>
+                </div>
+                
+                <div class="admin-section">
+                    <h4>Reports</h4>
+                    <button onclick="window.print()" class="print-btn">🖨️ Generate PDF Report</button>
+                </div>
+
+                <div class="admin-section">
+                    <h4>Add Participant</h4>
+                    <form id="personForm">
+                        <input type="text" id="newName" placeholder="Full Name" required>
+                        <select id="newRole">
+                            <option value="Student">Student</option>
+                            <option value="Chaperone">Chaperone</option>
+                        </select>
+                        <button type="submit">Register</button>
+                    </form>
+                </div>
+
+            </div>
+        </details>
+    </header>
+
+    <main>
+        <section id="entry-form">
+            <h3>Add Transaction</h3>
+            <form id="moneyForm">
+                <select id="nameDropdown" required>
+                    <option value="">-- Select Person --</option>
+                </select>
+                
+                <input type="number" id="amount" placeholder="Amount ($)" required>
+                <input type="text" id="comment" placeholder="Comment (e.g. Donation)" required>
+                <button type="submit">Post Payment</button>
+            </form>
+        </section>
+
+        <hr>
+
+        <section id="display-area">
+            <div class="participant-group">
+                <h3>Students</h3>
+                <div class="cards" id="studentCards"></div>
+            </div>
+            
+            <div class="participant-group">
+                <h3>Chaperones</h3>
+                <div class="cards" id="chaperoneCards"></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
+    </script>
+</body>
+</html>
