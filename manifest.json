@@ -1,5 +1,5 @@
 {
-  "short_name": "SeniorTripTracker",
+  "short_name": "TripTracker",
   "name": "Senior Trip 2026 Money Tracker",
   "icons": [
     {
@@ -13,5 +13,5 @@
   "background_color": "#f4f4f9",
   "display": "standalone",
   "scope": "./",
-  "theme_color": "#333333"
+  "theme_color": "#004a99"
 }
