@@ -1,4 +1,4 @@
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCPQFRpv1spWrgaRKRuceX62y64VxUZ5slPtEc0Zyqf6lmzz5cAtEiIWZo7n1e7oVDsQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjsiDsEH6s7azrgCm8FEr-GOPCT2dPQwCRjjDX3l9FlAMJ_6u2Prczy2Amqinud8fOUA/exec";
 
 const moneyForm = document.getElementById('moneyForm');
 const personForm = document.getElementById('personForm');
@@ -229,7 +229,6 @@ moneyForm.addEventListener('submit', async (e) => {
 });
 
 async function sendToSheet(payload) {
-    // Prevent interaction during save
     document.body.style.cursor = "wait"; 
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
@@ -245,7 +244,6 @@ async function sendToSheet(payload) {
                 action: payload.action || 'ADD'
             })
         });
-        // Post-save sync
         setTimeout(fetchData, 1000);
     } catch (e) { 
         console.error("POST Error:", e);
@@ -258,21 +256,81 @@ async function sendToSheet(payload) {
 function generateReport() {
     const group = groupView.value;
     const goal = parseFloat(globalGoalInput.value);
-    const studentCards = document.querySelectorAll('#studentCards .card');
-    const chaperoneCards = document.querySelectorAll('#chaperoneCards .card');
+    
+    // Group transactions by Person using lastData for full history
+    const currentGroupData = lastData.filter(entry => (entry.Group || 'Seniors') === group);
+    
+    const reportData = currentGroupData.reduce((acc, entry) => {
+        if (!acc[entry.Name]) {
+            acc[entry.Name] = { role: entry.Role, total: 0, transactions: [] };
+        }
+        const amount = parseFloat(entry.Amount || 0);
+        acc[entry.Name].total += amount;
+        
+        if (entry.Comment && entry.Comment !== "Registration") {
+            acc[entry.Name].transactions.push({
+                amount: amount,
+                comment: entry.Comment,
+                date: entry.Date ? new Date(entry.Date).toLocaleDateString() : 'N/A'
+            });
+        }
+        return acc;
+    }, {});
+
     let reportWindow = window.open('', '_blank');
-    let html = `<html><head><title>${group} Report</title><style>body{font-family:sans-serif;padding:40px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ddd;padding:10px;}</style></head>
-                <body><h2>${group} Balance Report - ${new Date().toLocaleDateString()}</h2><p>Goal: $${goal.toFixed(2)}</p><table><thead><tr><th>Name</th><th>Paid</th><th>Status</th></tr></thead><tbody>`;
-    [...studentCards, ...chaperoneCards].forEach(card => {
-        const name = card.querySelector('.card-name').innerText;
-        const paidSpan = card.querySelector('.balance-red, .balance-black, .balance-green');
-        const paidText = paidSpan ? paidSpan.innerText : "$0.00";
-        const paid = parseFloat(paidText.replace('$',''));
-        html += `<tr><td>${name}</td><td>${paidText}</td><td>${paid >= goal ? 'PAID' : 'PENDING'}</td></tr>`;
+    let html = `
+    <html>
+    <head>
+        <title>${group} Detailed Report</title>
+        <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            h2 { color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 10px; }
+            .student-section { margin-bottom: 30px; page-break-inside: avoid; }
+            .student-header { background: #f4f4f9; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; border-left: 5px solid #333; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.9rem; }
+            th { background-color: #eee; }
+            .status-paid { color: #5cb85c; font-weight: bold; }
+            .status-pending { color: #d9534f; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <h2>${group} Detailed Trip Report - ${new Date().toLocaleDateString()}</h2>
+        <p><strong>Group Goal:</strong> $${goal.toFixed(2)}</p>
+    `;
+
+    const sortedNames = Object.keys(reportData).sort();
+
+    sortedNames.forEach(name => {
+        const person = reportData[name];
+        const statusClass = person.total >= goal ? 'status-paid' : 'status-pending';
+        const statusText = person.total >= goal ? 'PAID IN FULL' : 'BALANCE PENDING';
+
+        html += `
+            <div class="student-section">
+                <div class="student-header">
+                    <span>${name} (${person.role})</span>
+                    <span class="${statusClass}">Total: $${person.total.toFixed(2)} — ${statusText}</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr><th>Date</th><th>Donor / Comment</th><th>Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        ${person.transactions.length > 0 ? 
+                            person.transactions.map(t => `
+                                <tr><td>${t.date}</td><td>${t.comment}</td><td>$${t.amount.toFixed(2)}</td></tr>
+                            `).join('') : '<tr><td colspan="3" style="text-align:center;">No transactions.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        `;
     });
-    html += `</tbody></table></body></html>`;
-    reportWindow.document.write(html); reportWindow.document.close();
-    setTimeout(() => reportWindow.print(), 500);
+
+    html += `</body></html>`;
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+    setTimeout(() => reportWindow.print(), 750);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
