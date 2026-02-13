@@ -173,7 +173,6 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     align-items: center;
     border-bottom: 1px solid #eee;
     padding: 6px 0;
-    position: relative; 
 }
 
 .history-item:last-child { border-bottom: none; }
@@ -185,11 +184,11 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     padding-right: 5px;
 }
 
-/* --- TRANSACTION DELETE MENU --- */
+/* --- TRANSACTION DELETE MENU (v11 Fix) --- */
 .menu-container {
-    position: relative;
-    display: inline-flex;
+    display: flex;
     align-items: center;
+    gap: 8px; /* Space between the red button and dots */
 }
 
 .trx-dots {
@@ -199,32 +198,28 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     padding: 0 5px !important;
     font-size: 1.2rem;
     cursor: pointer;
+    order: 2; /* Keeps dots on the right */
 }
 
 .trx-menu {
-    display: none;
-    position: absolute;
-    right: 100%;       
-    top: 50%;
-    transform: translateY(-50%);
-    margin-right: 8px; 
-    background: white;
-    border: 1px solid #ddd;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    border-radius: 4px;
-    z-index: 1000;     
+    display: none; /* Hidden until .show class added by JS */
+    order: 1; /* Puts red button to the left of dots */
 }
 
-.trx-menu.show { display: block; }
+.trx-menu.show {
+    display: flex;
+    align-items: center;
+}
 
 .trx-menu button {
     background: #d9534f !important;
     color: white;
     border: none;
-    padding: 5px 12px;
-    font-size: 0.8rem;
+    padding: 2px 10px;
+    font-size: 0.75rem;
     white-space: nowrap;
     border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 /* --- UTILITIES & PRINT --- */
