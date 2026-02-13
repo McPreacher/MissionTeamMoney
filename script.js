@@ -1,4 +1,4 @@
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzj4WZl5mc97Iu7WCeJ3cc3-TEeg0CwdSeYaKh392Q5p5PNWv-f5JOxYIDceb7DDsXh_A/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4JhJ4WATLJ-2_dLwpzw_53IfEz3lLyxQC9dvnxsDGX_no3vlJHaux3-lwK2vLXazLUA/exec";
 
 const moneyForm = document.getElementById('moneyForm');
 const personForm = document.getElementById('personForm');
@@ -49,11 +49,18 @@ async function fetchData() {
 }
 
 async function handleGoalUpdate() {
+    const btn = document.getElementById('goalBtn');
     localStorage.setItem(`goal_${groupView.value}`, globalGoalInput.value);
+    btn.disabled = true;
+    btn.innerText = "Saving...";
     processAndRender(lastData);
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.innerText = "Update";
+    }, 500);
 }
 
-// --- UPDATED DELETE TRANSACTION ---
+// --- DELETE LOGIC ---
 async function deleteTransaction(name, comment) {
     if (!confirm(`Delete: "${comment}" for ${name}?`)) return;
     document.body.style.cursor = "wait";
@@ -77,6 +84,20 @@ async function deletePerson(name) {
     setTimeout(fetchData, 2000);
 }
 
+// --- ACTIONS & REPORTS ---
+async function resetSystem() {
+    if (!confirm("⚠️ Erase everything? This cannot be undone.")) return;
+    if (!confirm("FINAL WARNING: Are you absolutely sure?")) return;
+
+    document.body.style.opacity = "0.5";
+    await sendToSheet({ action: 'RESET' });
+    location.reload(); 
+}
+
+function generateReport() {
+    window.print();
+}
+
 function toggleTrxMenu(event, uniqueMenuId) {
     event.stopPropagation(); 
     document.querySelectorAll('.trx-menu').forEach(menu => {
@@ -96,6 +117,9 @@ function processAndRender(data) {
     const sortType = document.getElementById('sortOrder').value;
     const currentGroup = groupView.value;
 
+    let runningTotal = 0;
+    let participantCount = 0;
+
     studentContainer.innerHTML = '';
     chaperoneContainer.innerHTML = '';
     
@@ -105,16 +129,32 @@ function processAndRender(data) {
         if (!acc[entry.Name]) {
             acc[entry.Name] = { role: entry.Role, total: 0, transactions: [], lastId: 0 };
             participantRoles[entry.Name] = entry.Role;
+            participantCount++;
         }
         const amount = parseFloat(entry.Amount || 0);
         acc[entry.Name].total += amount;
+        runningTotal += amount;
+
+        const numericId = parseInt(String(entry.id).replace(/\D/g,'')) || 0;
+        if (numericId > acc[entry.Name].lastId) acc[entry.Name].lastId = numericId;
+
         if (entry.Comment && entry.Comment !== "Registration") {
             acc[entry.Name].transactions.push({ id: entry.id, comment: entry.Comment, amount: amount });
         }
         return acc;
     }, {});
 
-    Object.keys(totals).sort().forEach(name => {
+    // Update Summary Section
+    if(document.getElementById('groupTotal')) document.getElementById('groupTotal').innerText = `$${runningTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    if(document.getElementById('groupCount')) document.getElementById('groupCount').innerText = participantCount;
+    if(document.getElementById('lastUpdated')) document.getElementById('lastUpdated').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+    let sortedNames = Object.keys(totals);
+    if (sortType === 'name') sortedNames.sort();
+    else if (sortType === 'recent') sortedNames.sort((a, b) => totals[b].lastId - totals[a].lastId);
+    else if (sortType === 'balance') sortedNames.sort((a, b) => totals[b].total - totals[a].total);
+
+    sortedNames.forEach(name => {
         const person = totals[name];
         const card = document.createElement('div');
         card.className = 'card';
@@ -124,7 +164,7 @@ function processAndRender(data) {
             <button onclick="deletePerson('${name}')" class="delete-btn">🗑️</button>
             <div class="card-header"><strong>${name}</strong><span>${person.role}</span></div>
             <hr>
-            <div>Balance: <span class="${balanceClass}">$${person.total.toFixed(2)}</span></div>
+            <div>Balance: <span class="${balanceClass}">$${person.total.toFixed(2)}</span> / $${goal}</div>
             <div class="history-section">
                 <ul class="history-list">
                     ${person.transactions.map((t, idx) => {
