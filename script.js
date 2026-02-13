@@ -1,4 +1,4 @@
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwA6kiGzsLYaBDGv9LOTHK2QoE4jSLmDgH7tN6cmLyZzdZBUYSGjmQyKpXp47518eSObA/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPX5NwrqpvlbrWfAIJlPcSqxc1N6_YTe2V8DxM_YmJN-XKpWGkt8EsP_DdYv8RAG9HfQ/exec";
 
 const moneyForm = document.getElementById('moneyForm');
 const personForm = document.getElementById('personForm');
@@ -9,7 +9,7 @@ const groupView = document.getElementById('groupView');
 let participantRoles = {};
 let lastData = []; 
 
-// --- AUTO-REFRESH (Conflict Prevention) ---
+// --- AUTO-REFRESH ---
 setInterval(() => {
     fetchData(); 
 }, 30000);
@@ -18,10 +18,8 @@ setInterval(() => {
 function handleGroupSwitch() {
     const group = groupView.value;
     document.getElementById('currentGroupName').innerText = group;
-    
     const savedGoal = localStorage.getItem(`goal_${group}`) || "2300";
     globalGoalInput.value = savedGoal;
-    
     processAndRender(lastData);
 }
 
@@ -43,13 +41,14 @@ function toggleLoading(formId, isLoading, message = "Processing...") {
 // --- DATA FETCHING ---
 async function fetchData() {
     try {
-        const response = await fetch(GOOGLE_SCRIPT_URL);
+        // Cache buster prevents the browser from showing deleted data
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?t=${Date.now()}`);
         const data = await response.json();
         
         if (JSON.stringify(data) !== JSON.stringify(lastData)) {
             lastData = data; 
             processAndRender(data);
-            console.log("Sync Complete: Data is fresh.");
+            console.log("Sync Complete.");
         }
         return data; 
     } catch (error) {
@@ -62,34 +61,31 @@ async function handleGoalUpdate() {
     localStorage.setItem(`goal_${groupView.value}`, globalGoalInput.value);
     btn.disabled = true;
     btn.innerText = "Saving...";
-    
     processAndRender(lastData);
-    
     setTimeout(() => {
         btn.disabled = false;
         btn.innerText = "Update Goal";
     }, 500);
 }
 
-// --- DELETE & RESET LOGIC ---
-
-// 1. Delete Specific Transaction
+// --- DELETE LOGIC ---
 async function deleteTransaction(id, comment) {
     if (!confirm(`Are you sure you want to delete: "${comment}"?`)) return;
     
     document.body.style.cursor = "wait";
-    // Ensure ID is passed as a string
+    
+    // Crucial: ID must be a string to match the Google Script formatting
     await sendToSheet({ id: String(id), action: 'DELETE_TRANSACTION' });
     
-    // Slight delay to allow Google's servers to settle before refreshing
-    setTimeout(fetchData, 1500);
+    // Allow 2 seconds for Sheets to flush changes before we re-fetch
+    setTimeout(async () => {
+        await fetchData();
+        document.body.style.cursor = "default";
+    }, 2000);
 }
 
-// Fixed Toggle: Uses the unique generated ID to find the correct menu
 function toggleTrxMenu(event, uniqueMenuId) {
     event.stopPropagation(); 
-    
-    // Close all other menus first to prevent stacking
     document.querySelectorAll('.trx-menu').forEach(menu => {
         if (menu.id !== uniqueMenuId) menu.classList.remove('show');
     });
@@ -97,54 +93,36 @@ function toggleTrxMenu(event, uniqueMenuId) {
     const menu = document.getElementById(uniqueMenuId);
     if (menu) {
         menu.classList.toggle('show');
-
-        // Close when clicking anywhere else
         document.addEventListener('click', () => {
             menu.classList.remove('show');
         }, { once: true });
     }
 }
 
-// 2. Delete Entire Person
 async function deletePerson(name) {
-    if (!confirm(`Are you sure you want to delete all records for ${name} in the ${groupView.value} group?`)) return;
+    if (!confirm(`Are you sure you want to delete all records for ${name}?`)) return;
 
     const cards = document.querySelectorAll('.card');
-    let targetCard = null;
-    
     cards.forEach(card => {
         if (card.querySelector('.card-name').innerText === name) {
-            targetCard = card;
+            card.classList.add('card-loading');
         }
     });
 
-    if (targetCard) {
-        targetCard.classList.add('card-loading');
-        const btn = targetCard.querySelector('.delete-btn');
-        btn.innerText = "⌛"; 
-        btn.style.opacity = "1";
-    }
-
     await sendToSheet({ name: name, action: 'DELETE', group: groupView.value });
-    setTimeout(fetchData, 1500);
+    setTimeout(fetchData, 2000);
 }
 
 async function resetSystem() {
-    const confirm1 = confirm("⚠️ DANGER: You are about to erase ALL NAMES and ALL PAYMENTS. This cannot be undone.");
-    if (!confirm1) return;
-
-    const confirm2 = confirm("FINAL WARNING: Are you absolutely sure?");
-    if (!confirm2) return;
+    if (!confirm("⚠️ Erase everything?")) return;
+    if (!confirm("FINAL WARNING: Are you sure?")) return;
 
     document.body.style.opacity = "0.5";
-    document.body.style.pointerEvents = "none";
-
     await sendToSheet({ action: 'RESET' });
-    alert("System has been reset. Starting fresh!");
     location.reload(); 
 }
 
-// --- RENDERING LOGIC ---
+// --- RENDERING ---
 function processAndRender(data) {
     const studentContainer = document.getElementById('studentCards');
     const chaperoneContainer = document.getElementById('chaperoneCards');
@@ -155,8 +133,6 @@ function processAndRender(data) {
     let runningTotal = 0;
     let participantCount = 0;
 
-    studentContainer.style.opacity = '1';
-    chaperoneContainer.style.opacity = '1';
     studentContainer.innerHTML = '';
     chaperoneContainer.innerHTML = '';
     
@@ -186,100 +162,85 @@ function processAndRender(data) {
         return acc;
     }, {});
 
-    if(document.getElementById('groupTotal')) {
-        document.getElementById('groupTotal').innerText = `$${runningTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-    }
-    if(document.getElementById('groupCount')) {
-        document.getElementById('groupCount').innerText = participantCount;
-    }
-    if(document.getElementById('lastUpdated')) {
-        const now = new Date();
-        document.getElementById('lastUpdated').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    }
+    // Update Stats
+    if(document.getElementById('groupTotal')) document.getElementById('groupTotal').innerText = `$${runningTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    if(document.getElementById('groupCount')) document.getElementById('groupCount').innerText = participantCount;
+    if(document.getElementById('lastUpdated')) document.getElementById('lastUpdated').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
+    // Sort and Render Cards
     let sortedNames = Object.keys(totals);
     if (sortType === 'name') sortedNames.sort();
     else if (sortType === 'recent') sortedNames.sort((a, b) => totals[b].lastId - totals[a].lastId);
     else if (sortType === 'balance') sortedNames.sort((a, b) => totals[b].total - totals[a].total);
 
-    const dropdownNames = Object.keys(totals).sort();
-    nameDropdown.innerHTML = '<option value="">-- Select Person --</option>';
-    dropdownNames.forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name; opt.textContent = name;
-        nameDropdown.appendChild(opt);
-    });
-
     sortedNames.forEach(name => {
         const person = totals[name];
         const card = document.createElement('div');
         card.className = 'card';
-
         let balanceClass = person.total >= goal ? 'balance-green' : 'balance-red';
-        if (person.total === goal && goal > 0) balanceClass = 'balance-black';
 
         card.innerHTML = `
-            <button onclick="deletePerson('${name}')" class="delete-btn" title="Delete ${name}">🗑️</button>
-            <div class="card-header">
-                <strong class="card-name">${name}</strong>
-                <span class="card-role">${person.role}</span>
-            </div>
-            <hr style="border: 0; border-top: 1px dashed #ccc; margin: 8px 0;">
-            <div style="margin-bottom: 10px;">
-                <strong>Balance: </strong>
-                <span class="${balanceClass}">$${person.total.toFixed(2)}</span> / $${goal}
-            </div>
+            <button onclick="deletePerson('${name}')" class="delete-btn">🗑️</button>
+            <div class="card-header"><strong class="card-name">${name}</strong><span class="card-role">${person.role}</span></div>
+            <hr>
+            <div><strong>Balance: </strong><span class="${balanceClass}">$${person.total.toFixed(2)}</span> / $${goal}</div>
             <div class="history-section">
                 <ul class="history-list">
-                    ${person.transactions.map((t, index) => {
-                        const uiMenuId = `menu-${name.replace(/\s+/g, '-')}-${index}`;
+                    ${person.transactions.map((t, idx) => {
+                        const uiMenuId = `menu-${name.replace(/\s+/g, '-')}-${idx}`;
                         return `
                         <li class="history-item">
-                            <span class="history-text">${t.comment} ($${t.amount})</span>
+                            <span>${t.comment} ($${t.amount})</span>
                             <div class="menu-container">
                                 <button class="trx-dots" onclick="toggleTrxMenu(event, '${uiMenuId}')">⋮</button>
                                 <div id="${uiMenuId}" class="trx-menu">
                                     <button onclick="deleteTransaction('${t.id}', '${t.comment.replace(/'/g, "\\'")}')">Delete</button>
                                 </div>
                             </div>
-                        </li>
-                    `}).join('') || '<li class="history-text">Registered</li>'}
+                        </li>`;
+                    }).join('') || '<li>Registered</li>'}
                 </ul>
-            </div>
-        `;
+            </div>`;
+        (person.role === 'Student' ? studentContainer : chaperoneContainer).appendChild(card);
+    });
 
-        if (person.role === 'Student') studentContainer.appendChild(card);
-        else chaperoneContainer.appendChild(card);
+    // Sync Dropdown
+    nameDropdown.innerHTML = '<option value="">-- Select Person --</option>';
+    Object.keys(totals).sort().forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n; opt.textContent = n;
+        nameDropdown.appendChild(opt);
     });
 }
 
 // --- FORM SUBMISSIONS ---
 personForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById('newName').value;
-    const role = document.getElementById('newRole').value;
     toggleLoading('personForm', true, "Registering...");
-    await sendToSheet({ name, role, amount: 0, comment: "Registration", group: groupView.value });
+    await sendToSheet({ 
+        name: document.getElementById('newName').value, 
+        role: document.getElementById('newRole').value, 
+        amount: 0, comment: "Registration", group: groupView.value 
+    });
     personForm.reset();
-    setTimeout(async () => { await fetchData(); toggleLoading('personForm', false); }, 1500);
+    setTimeout(async () => { await fetchData(); toggleLoading('personForm', false); }, 2000);
 });
 
 moneyForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = nameDropdown.value;
-    const amount = document.getElementById('amount').value;
-    const comment = document.getElementById('comment').value;
     toggleLoading('moneyForm', true, "Posting...");
-    await sendToSheet({ name, amount, comment, role: participantRoles[name], group: groupView.value });
+    await sendToSheet({ 
+        name, amount: document.getElementById('amount').value, 
+        comment: document.getElementById('comment').value, 
+        role: participantRoles[name], group: groupView.value 
+    });
     moneyForm.reset();
-    setTimeout(async () => { await fetchData(); toggleLoading('moneyForm', false); }, 1500);
+    setTimeout(async () => { await fetchData(); toggleLoading('moneyForm', false); }, 2000);
 });
 
 async function sendToSheet(payload) {
-    document.body.style.cursor = "wait"; 
     try {
-        // Change: Sending as text/plain to avoid CORS preflight, 
-        // while still stringifying the object for code.gs to parse.
         await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -294,50 +255,7 @@ async function sendToSheet(payload) {
                 action: payload.action || 'ADD'
             })
         });
-    } catch (e) { 
-        console.error("POST Error:", e);
-    } finally {
-        document.body.style.cursor = "default";
-    }
-}
-
-// --- REPORT GENERATION ---
-function generateReport() {
-    const group = groupView.value;
-    const goal = parseFloat(globalGoalInput.value);
-    const currentGroupData = lastData.filter(entry => (entry.Group || 'Seniors') === group);
-    
-    const reportData = currentGroupData.reduce((acc, entry) => {
-        if (!acc[entry.Name]) {
-            acc[entry.Name] = { role: entry.Role, total: 0, transactions: [] };
-        }
-        const amount = parseFloat(entry.Amount || 0);
-        acc[entry.Name].total += amount;
-        
-        if (entry.Comment && entry.Comment !== "Registration") {
-            acc[entry.Name].transactions.push({
-                amount: amount,
-                comment: entry.Comment,
-                date: entry.Date ? new Date(entry.Date).toLocaleDateString() : 'N/A'
-            });
-        }
-        return acc;
-    }, {});
-
-    let reportWindow = window.open('', '_blank');
-    let html = `<html><head><title>${group} Report</title><style>body { font-family: sans-serif; padding: 20px; color: #333; } h2 { color: #2e7d32; border-bottom: 2px solid #2e7d32; } .student-section { margin-bottom: 30px; page-break-inside: avoid; } .student-header { background: #f4f4f9; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; border-left: 5px solid #333; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.9rem; } th { background-color: #eee; } .status-paid { color: #5cb85c; font-weight: bold; } .status-pending { color: #d9534f; font-weight: bold; }</style></head><body><h2>${group} Detailed Trip Report - ${new Date().toLocaleDateString()}</h2><p><strong>Group Goal:</strong> $${goal.toFixed(2)}</p>`;
-
-    Object.keys(reportData).sort().forEach(name => {
-        const person = reportData[name];
-        const statusClass = person.total >= goal ? 'status-paid' : 'status-pending';
-        const statusText = person.total >= goal ? 'PAID IN FULL' : 'BALANCE PENDING';
-        html += `<div class="student-section"><div class="student-header"><span>${name} (${person.role})</span><span class="${statusClass}">Total: $${person.total.toFixed(2)} — ${statusText}</span></div><table><thead><tr><th>Date</th><th>Donor / Comment</th><th>Amount</th></tr></thead><tbody>${person.transactions.length > 0 ? person.transactions.map(t => `<tr><td>${t.date}</td><td>${t.comment}</td><td>$${t.amount.toFixed(2)}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center;">No transactions.</td></tr>'}</tbody></table></div>`;
-    });
-
-    html += `</body></html>`;
-    reportWindow.document.write(html);
-    reportWindow.document.close();
-    setTimeout(() => reportWindow.print(), 750);
+    } catch (e) { console.error("POST Error:", e); }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
