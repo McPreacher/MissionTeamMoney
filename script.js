@@ -83,15 +83,16 @@ async function deleteTransaction(id, comment) {
     setTimeout(fetchData, 1000);
 }
 
-// Toggle the revealable delete menu
-function toggleTrxMenu(event, id) {
+// Fixed Toggle: Uses the unique generated ID to find the correct menu
+function toggleTrxMenu(event, uniqueMenuId) {
     event.stopPropagation(); 
     
+    // Close all other menus first to prevent stacking
     document.querySelectorAll('.trx-menu').forEach(menu => {
-        if (menu.id !== `menu-${id}`) menu.classList.remove('show');
+        if (menu.id !== uniqueMenuId) menu.classList.remove('show');
     });
 
-    const menu = document.getElementById(`menu-${id}`);
+    const menu = document.getElementById(uniqueMenuId);
     if (menu) {
         menu.classList.toggle('show');
 
@@ -228,17 +229,20 @@ function processAndRender(data) {
             </div>
             <div class="history-section">
                 <ul class="history-list">
-                    ${person.transactions.map(t => `
+                    ${person.transactions.map((t, index) => {
+                        // FIX: Generate a UI-unique ID for the menu targeting
+                        const uiMenuId = `menu-${name.replace(/\s+/g, '-')}-${index}`;
+                        return `
                         <li class="history-item">
                             <span class="history-text">${t.comment} ($${t.amount})</span>
                             <div class="menu-container">
-                                <button class="trx-dots" onclick="toggleTrxMenu(event, '${t.id}')">⋮</button>
-                                <div id="menu-${t.id}" class="trx-menu">
+                                <button class="trx-dots" onclick="toggleTrxMenu(event, '${uiMenuId}')">⋮</button>
+                                <div id="${uiMenuId}" class="trx-menu">
                                     <button onclick="deleteTransaction('${t.id}', '${t.comment.replace(/'/g, "\\'")}')">Delete</button>
                                 </div>
                             </div>
                         </li>
-                    `).join('') || '<li class="history-text">Registered</li>'}
+                    `}).join('') || '<li class="history-text">Registered</li>'}
                 </ul>
             </div>
         `;
@@ -275,6 +279,7 @@ async function sendToSheet(payload) {
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
+            // mode: 'no-cors' is used because Google Apps Script doesn't return CORS headers easily
             mode: 'no-cors',
             body: JSON.stringify({
                 id: payload.id || Date.now(),
