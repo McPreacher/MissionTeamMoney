@@ -1,3 +1,4 @@
+/* --- CORE STYLES --- */
 body {
     font-family: sans-serif;
     line-height: 1.6;
@@ -14,6 +15,7 @@ header {
     margin-bottom: 20px;
 }
 
+/* --- ADMIN PANEL --- */
 #admin-panel {
     background: #444;
     color: white;
@@ -48,9 +50,7 @@ header {
     border-right: 1px solid #eee;
 }
 
-.admin-section:last-child {
-    border-right: none;
-}
+.admin-section:last-child { border-right: none; }
 
 .admin-section h4 {
     margin-top: 0;
@@ -58,12 +58,6 @@ header {
     color: #666;
     font-size: 0.8rem;
     text-transform: uppercase;
-}
-
-.goal-setting input {
-    font-size: 1rem;
-    width: 100px;
-    padding: 5px;
 }
 
 .print-btn {
@@ -77,21 +71,16 @@ header {
     font-weight: bold;
 }
 
-#moneyForm {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
+/* --- FORMS & INPUTS --- */
+#moneyForm, #personForm {
     background: white;
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-#personForm {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
+#moneyForm { display: flex; gap: 10px; flex-wrap: wrap; }
+#personForm { display: flex; flex-direction: column; gap: 8px; }
 
 select, input {
     padding: 8px;
@@ -113,6 +102,7 @@ button {
 button:hover { opacity: 0.85; }
 button:disabled { background-color: #ccc; cursor: not-allowed; }
 
+/* --- CARDS & GRID --- */
 .cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -141,7 +131,6 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     opacity: 0.2;
     padding: 10px;
     z-index: 99;
-    pointer-events: auto;
     transition: transform 0.2s, opacity 0.2s;
 }
 
@@ -157,22 +146,15 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     align-items: flex-start;
 }
 
-.card-name {
-    font-size: 1.1rem;
-    word-break: break-word;
-}
+.card-name { font-size: 1.1rem; word-break: break-word; }
+.card-role { font-size: 0.75rem; color: #777; margin-top: 2px; }
 
-.card-role {
-    font-size: 0.75rem;
-    color: #777;
-    margin-top: 2px;
-}
-
+/* --- BALANCES --- */
 .balance-red { color: #d9534f; font-weight: bold; }
 .balance-black { color: #000; font-weight: bold; }
 .balance-green { color: #5cb85c; font-weight: bold; }
 
-/* HISTORY SECTION */
+/* --- HISTORY SECTION --- */
 .history-section {
     max-height: 120px;
     overflow-y: auto;
@@ -183,11 +165,7 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     border: 1px solid #edf0f2; 
 }
 
-.history-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
+.history-list { list-style: none; padding: 0; margin: 0; }
 
 .history-item {
     display: flex;
@@ -198,9 +176,7 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     position: relative; 
 }
 
-.history-item:last-child {
-    border-bottom: none;
-}
+.history-item:last-child { border-bottom: none; }
 
 .history-text {
     flex: 1;
@@ -209,10 +185,10 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     padding-right: 5px;
 }
 
-/* TWO-STEP DELETE MENU */
+/* --- TRANSACTION DELETE MENU --- */
 .menu-container {
     position: relative;
-    display: flex;
+    display: inline-flex;
     align-items: center;
 }
 
@@ -228,19 +204,18 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
 .trx-menu {
     display: none;
     position: absolute;
-    right: 30px; 
+    right: 100%;       
     top: 50%;
     transform: translateY(-50%);
+    margin-right: 8px; 
     background: white;
     border: 1px solid #ddd;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     border-radius: 4px;
-    z-index: 100;
+    z-index: 1000;     
 }
 
-.trx-menu.show {
-    display: block;
-}
+.trx-menu.show { display: block; }
 
 .trx-menu button {
     background: #d9534f !important;
@@ -252,14 +227,9 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     border-radius: 4px;
 }
 
-/* UTILITIES & ANIMATIONS */
-.history-section::-webkit-scrollbar {
-    width: 5px;
-}
-.history-section::-webkit-scrollbar-thumb {
-    background: #bbb;
-    border-radius: 10px;
-}
+/* --- UTILITIES & PRINT --- */
+.history-section::-webkit-scrollbar { width: 5px; }
+.history-section::-webkit-scrollbar-thumb { background: #bbb; border-radius: 10px; }
 
 @keyframes pulse {
     0% { opacity: 1; }

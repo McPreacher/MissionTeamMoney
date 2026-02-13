@@ -75,32 +75,31 @@ async function handleGoalUpdate() {
 
 // 1. Delete Specific Transaction
 async function deleteTransaction(id, comment) {
-    // Final confirmation before deleting
     if (!confirm(`Are you sure you want to delete: "${comment}"?`)) return;
     
     document.body.style.cursor = "wait";
     await sendToSheet({ id: id, action: 'DELETE_TRANSACTION' });
     
-    // Slight delay to allow Google Sheets to process before refresh
     setTimeout(fetchData, 1000);
 }
 
 // Toggle the revealable delete menu
 function toggleTrxMenu(event, id) {
-    event.stopPropagation(); // Stop click from closing menu immediately
+    event.stopPropagation(); 
     
-    // Close any other open menus first
     document.querySelectorAll('.trx-menu').forEach(menu => {
         if (menu.id !== `menu-${id}`) menu.classList.remove('show');
     });
 
     const menu = document.getElementById(`menu-${id}`);
-    menu.classList.toggle('show');
+    if (menu) {
+        menu.classList.toggle('show');
 
-    // Close when clicking anywhere else
-    document.addEventListener('click', () => {
-        menu.classList.remove('show');
-    }, { once: true });
+        // Close when clicking anywhere else
+        document.addEventListener('click', () => {
+            menu.classList.remove('show');
+        }, { once: true });
+    }
 }
 
 // 2. Delete Entire Person
@@ -228,18 +227,18 @@ function processAndRender(data) {
                 <span class="${balanceClass}">$${person.total.toFixed(2)}</span> / $${goal}
             </div>
             <div class="history-section">
-                <ul class="history-list" style="list-style: none; padding: 0; margin: 0;">
+                <ul class="history-list">
                     ${person.transactions.map(t => `
-                        <li class="history-item" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 4px 0; position: relative;">
-                            <span style="font-size: 0.85rem; color: #444;">${t.comment} ($${t.amount})</span>
-                            <div class="menu-container" style="position: relative;">
-                                <button class="trx-dots" onclick="toggleTrxMenu(event, '${t.id}')" style="background:transparent; border:none; color:#999; cursor:pointer; font-weight:bold; font-size:1.1rem; padding:0 5px;">⋮</button>
+                        <li class="history-item">
+                            <span class="history-text">${t.comment} ($${t.amount})</span>
+                            <div class="menu-container">
+                                <button class="trx-dots" onclick="toggleTrxMenu(event, '${t.id}')">⋮</button>
                                 <div id="menu-${t.id}" class="trx-menu">
                                     <button onclick="deleteTransaction('${t.id}', '${t.comment.replace(/'/g, "\\'")}')">Delete</button>
                                 </div>
                             </div>
                         </li>
-                    `).join('') || '<li style="font-size: 0.85rem; color: #444;">Registered</li>'}
+                    `).join('') || '<li class="history-text">Registered</li>'}
                 </ul>
             </div>
         `;
