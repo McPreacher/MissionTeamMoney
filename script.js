@@ -1,4 +1,4 @@
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyIuzCSRmEijv2cI1vrgpF4I-0SfqUvXx8iLnqVhX4dCzJfhpk2z2IXHqnU0E9bbWjhnQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDwSXsWL3jkDAmJMTHtWIsol2pWAwn-xvF8aOv8ryHkAMPhP7djYprpuseIpT4t8F8vg/exec";
 
 const moneyForm = document.getElementById('moneyForm');
 const personForm = document.getElementById('personForm');
@@ -41,7 +41,6 @@ function toggleLoading(formId, isLoading, message = "Processing...") {
 // --- DATA FETCHING ---
 async function fetchData() {
     try {
-        // Cache buster prevents the browser from showing deleted data
         const response = await fetch(`${GOOGLE_SCRIPT_URL}?t=${Date.now()}`);
         const data = await response.json();
         
@@ -74,10 +73,9 @@ async function deleteTransaction(id, comment) {
     
     document.body.style.cursor = "wait";
     
-    // Crucial: ID must be a string to match the Google Script formatting
+    // The ID now starts with "TRX-", ensuring it matches as a string
     await sendToSheet({ id: String(id), action: 'DELETE_TRANSACTION' });
     
-    // Allow 2 seconds for Sheets to flush changes before we re-fetch
     setTimeout(async () => {
         await fetchData();
         document.body.style.cursor = "default";
@@ -150,7 +148,9 @@ function processAndRender(data) {
         acc[entry.Name].total += amount;
         runningTotal += amount; 
 
-        if (entry.id > acc[entry.Name].lastId) acc[entry.Name].lastId = entry.id;
+        // Simplified lastId tracking for sorting
+        const numericId = parseInt(String(entry.id).replace(/\D/g,'')) || 0;
+        if (numericId > acc[entry.Name].lastId) acc[entry.Name].lastId = numericId;
         
         if (entry.Comment && entry.Comment !== "Registration") {
             acc[entry.Name].transactions.push({
@@ -162,12 +162,10 @@ function processAndRender(data) {
         return acc;
     }, {});
 
-    // Update Stats
     if(document.getElementById('groupTotal')) document.getElementById('groupTotal').innerText = `$${runningTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     if(document.getElementById('groupCount')) document.getElementById('groupCount').innerText = participantCount;
     if(document.getElementById('lastUpdated')) document.getElementById('lastUpdated').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-    // Sort and Render Cards
     let sortedNames = Object.keys(totals);
     if (sortType === 'name') sortedNames.sort();
     else if (sortType === 'recent') sortedNames.sort((a, b) => totals[b].lastId - totals[a].lastId);
@@ -204,7 +202,6 @@ function processAndRender(data) {
         (person.role === 'Student' ? studentContainer : chaperoneContainer).appendChild(card);
     });
 
-    // Sync Dropdown
     nameDropdown.innerHTML = '<option value="">-- Select Person --</option>';
     Object.keys(totals).sort().forEach(n => {
         const opt = document.createElement('option');
@@ -218,6 +215,7 @@ personForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     toggleLoading('personForm', true, "Registering...");
     await sendToSheet({ 
+        id: "USR-" + Date.now(), // Unique Text ID
         name: document.getElementById('newName').value, 
         role: document.getElementById('newRole').value, 
         amount: 0, comment: "Registration", group: groupView.value 
@@ -231,6 +229,7 @@ moneyForm.addEventListener('submit', async (e) => {
     const name = nameDropdown.value;
     toggleLoading('moneyForm', true, "Posting...");
     await sendToSheet({ 
+        id: "TRX-" + Date.now(), // Unique Text ID
         name, amount: document.getElementById('amount').value, 
         comment: document.getElementById('comment').value, 
         role: participantRoles[name], group: groupView.value 
@@ -246,7 +245,7 @@ async function sendToSheet(payload) {
             mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify({
-                id: payload.id || Date.now(),
+                id: payload.id, // ID is now pre-generated with TRX- or USR-
                 name: payload.name,
                 role: payload.role || "Student",
                 group: payload.group,
