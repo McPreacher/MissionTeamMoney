@@ -1,4 +1,4 @@
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwDem4o4GnfHNorZPw06CZPjfPW5mDwnuRDa5Qqq-XkLhhh-pU9vqcw6IYoDYeX6zRU/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwA6kiGzsLYaBDGv9LOTHK2QoE4jSLmDgH7tN6cmLyZzdZBUYSGjmQyKpXp47518eSObA/exec";
 
 const moneyForm = document.getElementById('moneyForm');
 const personForm = document.getElementById('personForm');
@@ -78,9 +78,11 @@ async function deleteTransaction(id, comment) {
     if (!confirm(`Are you sure you want to delete: "${comment}"?`)) return;
     
     document.body.style.cursor = "wait";
-    await sendToSheet({ id: id, action: 'DELETE_TRANSACTION' });
+    // Ensure ID is passed as a string
+    await sendToSheet({ id: String(id), action: 'DELETE_TRANSACTION' });
     
-    setTimeout(fetchData, 1000);
+    // Slight delay to allow Google's servers to settle before refreshing
+    setTimeout(fetchData, 1500);
 }
 
 // Fixed Toggle: Uses the unique generated ID to find the correct menu
@@ -230,7 +232,6 @@ function processAndRender(data) {
             <div class="history-section">
                 <ul class="history-list">
                     ${person.transactions.map((t, index) => {
-                        // FIX: Generate a UI-unique ID for the menu targeting
                         const uiMenuId = `menu-${name.replace(/\s+/g, '-')}-${index}`;
                         return `
                         <li class="history-item">
@@ -277,10 +278,12 @@ moneyForm.addEventListener('submit', async (e) => {
 async function sendToSheet(payload) {
     document.body.style.cursor = "wait"; 
     try {
+        // Change: Sending as text/plain to avoid CORS preflight, 
+        // while still stringifying the object for code.gs to parse.
         await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
-            // mode: 'no-cors' is used because Google Apps Script doesn't return CORS headers easily
             mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify({
                 id: payload.id || Date.now(),
                 name: payload.name,
@@ -293,7 +296,6 @@ async function sendToSheet(payload) {
         });
     } catch (e) { 
         console.error("POST Error:", e);
-        alert("Sync failed. Check your connection.");
     } finally {
         document.body.style.cursor = "default";
     }
