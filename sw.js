@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-tracker-v8'; // When you change this, the old cache dies
+const CACHE_NAME = 'trip-tracker-v9'; // When you change this, the old cache dies
 const ASSETS = [
   './',
   './index.html',
