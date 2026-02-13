@@ -1,4 +1,4 @@
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDwSXsWL3jkDAmJMTHtWIsol2pWAwn-xvF8aOv8ryHkAMPhP7djYprpuseIpT4t8F8vg/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzj4WZl5mc97Iu7WCeJ3cc3-TEeg0CwdSeYaKh392Q5p5PNWv-f5JOxYIDceb7DDsXh_A/exec";
 
 const moneyForm = document.getElementById('moneyForm');
 const personForm = document.getElementById('personForm');
@@ -14,7 +14,6 @@ setInterval(() => {
     fetchData(); 
 }, 30000);
 
-// --- GROUP MANAGEMENT ---
 function handleGroupSwitch() {
     const group = groupView.value;
     document.getElementById('currentGroupName').innerText = group;
@@ -23,7 +22,6 @@ function handleGroupSwitch() {
     processAndRender(lastData);
 }
 
-// --- UI FEEDBACK ---
 function toggleLoading(formId, isLoading, message = "Processing...") {
     const form = document.getElementById(formId);
     if(!form) return;
@@ -38,43 +36,34 @@ function toggleLoading(formId, isLoading, message = "Processing...") {
     }
 }
 
-// --- DATA FETCHING ---
 async function fetchData() {
     try {
         const response = await fetch(`${GOOGLE_SCRIPT_URL}?t=${Date.now()}`);
         const data = await response.json();
-        
         if (JSON.stringify(data) !== JSON.stringify(lastData)) {
             lastData = data; 
             processAndRender(data);
-            console.log("Sync Complete.");
         }
         return data; 
-    } catch (error) {
-        console.error("Error fetching data:", error);
-    }
+    } catch (error) { console.error("Fetch Error:", error); }
 }
 
 async function handleGoalUpdate() {
-    const btn = document.getElementById('goalBtn');
     localStorage.setItem(`goal_${groupView.value}`, globalGoalInput.value);
-    btn.disabled = true;
-    btn.innerText = "Saving...";
     processAndRender(lastData);
-    setTimeout(() => {
-        btn.disabled = false;
-        btn.innerText = "Update Goal";
-    }, 500);
 }
 
-// --- DELETE LOGIC ---
-async function deleteTransaction(id, comment) {
-    if (!confirm(`Are you sure you want to delete: "${comment}"?`)) return;
-    
+// --- UPDATED DELETE TRANSACTION ---
+async function deleteTransaction(name, comment) {
+    if (!confirm(`Delete: "${comment}" for ${name}?`)) return;
     document.body.style.cursor = "wait";
     
-    // The ID now starts with "TRX-", ensuring it matches as a string
-    await sendToSheet({ id: String(id), action: 'DELETE_TRANSACTION' });
+    await sendToSheet({ 
+        name: name, 
+        comment: comment, 
+        group: groupView.value, 
+        action: 'DELETE_TRANSACTION' 
+    });
     
     setTimeout(async () => {
         await fetchData();
@@ -82,45 +71,24 @@ async function deleteTransaction(id, comment) {
     }, 2000);
 }
 
+async function deletePerson(name) {
+    if (!confirm(`Delete all records for ${name}?`)) return;
+    await sendToSheet({ name: name, action: 'DELETE', group: groupView.value });
+    setTimeout(fetchData, 2000);
+}
+
 function toggleTrxMenu(event, uniqueMenuId) {
     event.stopPropagation(); 
     document.querySelectorAll('.trx-menu').forEach(menu => {
         if (menu.id !== uniqueMenuId) menu.classList.remove('show');
     });
-
     const menu = document.getElementById(uniqueMenuId);
     if (menu) {
         menu.classList.toggle('show');
-        document.addEventListener('click', () => {
-            menu.classList.remove('show');
-        }, { once: true });
+        document.addEventListener('click', () => menu.classList.remove('show'), { once: true });
     }
 }
 
-async function deletePerson(name) {
-    if (!confirm(`Are you sure you want to delete all records for ${name}?`)) return;
-
-    const cards = document.querySelectorAll('.card');
-    cards.forEach(card => {
-        if (card.querySelector('.card-name').innerText === name) {
-            card.classList.add('card-loading');
-        }
-    });
-
-    await sendToSheet({ name: name, action: 'DELETE', group: groupView.value });
-    setTimeout(fetchData, 2000);
-}
-
-async function resetSystem() {
-    if (!confirm("⚠️ Erase everything?")) return;
-    if (!confirm("FINAL WARNING: Are you sure?")) return;
-
-    document.body.style.opacity = "0.5";
-    await sendToSheet({ action: 'RESET' });
-    location.reload(); 
-}
-
-// --- RENDERING ---
 function processAndRender(data) {
     const studentContainer = document.getElementById('studentCards');
     const chaperoneContainer = document.getElementById('chaperoneCards');
@@ -128,50 +96,25 @@ function processAndRender(data) {
     const sortType = document.getElementById('sortOrder').value;
     const currentGroup = groupView.value;
 
-    let runningTotal = 0;
-    let participantCount = 0;
-
     studentContainer.innerHTML = '';
     chaperoneContainer.innerHTML = '';
     
     const totals = data.reduce((acc, entry) => {
         const entryGroup = entry.Group || 'Seniors'; 
         if (entryGroup !== currentGroup) return acc;
-
         if (!acc[entry.Name]) {
             acc[entry.Name] = { role: entry.Role, total: 0, transactions: [], lastId: 0 };
             participantRoles[entry.Name] = entry.Role;
-            participantCount++; 
         }
-
         const amount = parseFloat(entry.Amount || 0);
         acc[entry.Name].total += amount;
-        runningTotal += amount; 
-
-        // Simplified lastId tracking for sorting
-        const numericId = parseInt(String(entry.id).replace(/\D/g,'')) || 0;
-        if (numericId > acc[entry.Name].lastId) acc[entry.Name].lastId = numericId;
-        
         if (entry.Comment && entry.Comment !== "Registration") {
-            acc[entry.Name].transactions.push({
-                id: entry.id,
-                comment: entry.Comment,
-                amount: amount
-            });
+            acc[entry.Name].transactions.push({ id: entry.id, comment: entry.Comment, amount: amount });
         }
         return acc;
     }, {});
 
-    if(document.getElementById('groupTotal')) document.getElementById('groupTotal').innerText = `$${runningTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-    if(document.getElementById('groupCount')) document.getElementById('groupCount').innerText = participantCount;
-    if(document.getElementById('lastUpdated')) document.getElementById('lastUpdated').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-    let sortedNames = Object.keys(totals);
-    if (sortType === 'name') sortedNames.sort();
-    else if (sortType === 'recent') sortedNames.sort((a, b) => totals[b].lastId - totals[a].lastId);
-    else if (sortType === 'balance') sortedNames.sort((a, b) => totals[b].total - totals[a].total);
-
-    sortedNames.forEach(name => {
+    Object.keys(totals).sort().forEach(name => {
         const person = totals[name];
         const card = document.createElement('div');
         card.className = 'card';
@@ -179,9 +122,9 @@ function processAndRender(data) {
 
         card.innerHTML = `
             <button onclick="deletePerson('${name}')" class="delete-btn">🗑️</button>
-            <div class="card-header"><strong class="card-name">${name}</strong><span class="card-role">${person.role}</span></div>
+            <div class="card-header"><strong>${name}</strong><span>${person.role}</span></div>
             <hr>
-            <div><strong>Balance: </strong><span class="${balanceClass}">$${person.total.toFixed(2)}</span> / $${goal}</div>
+            <div>Balance: <span class="${balanceClass}">$${person.total.toFixed(2)}</span></div>
             <div class="history-section">
                 <ul class="history-list">
                     ${person.transactions.map((t, idx) => {
@@ -192,7 +135,7 @@ function processAndRender(data) {
                             <div class="menu-container">
                                 <button class="trx-dots" onclick="toggleTrxMenu(event, '${uiMenuId}')">⋮</button>
                                 <div id="${uiMenuId}" class="trx-menu">
-                                    <button onclick="deleteTransaction('${t.id}', '${t.comment.replace(/'/g, "\\'")}')">Delete</button>
+                                    <button onclick="deleteTransaction('${name}', '${t.comment.replace(/'/g, "\\'")}')">Delete</button>
                                 </div>
                             </div>
                         </li>`;
@@ -210,26 +153,12 @@ function processAndRender(data) {
     });
 }
 
-// --- FORM SUBMISSIONS ---
-personForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    toggleLoading('personForm', true, "Registering...");
-    await sendToSheet({ 
-        id: "USR-" + Date.now(), // Unique Text ID
-        name: document.getElementById('newName').value, 
-        role: document.getElementById('newRole').value, 
-        amount: 0, comment: "Registration", group: groupView.value 
-    });
-    personForm.reset();
-    setTimeout(async () => { await fetchData(); toggleLoading('personForm', false); }, 2000);
-});
-
 moneyForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = nameDropdown.value;
     toggleLoading('moneyForm', true, "Posting...");
     await sendToSheet({ 
-        id: "TRX-" + Date.now(), // Unique Text ID
+        id: "TRX-" + Date.now(),
         name, amount: document.getElementById('amount').value, 
         comment: document.getElementById('comment').value, 
         role: participantRoles[name], group: groupView.value 
@@ -238,26 +167,28 @@ moneyForm.addEventListener('submit', async (e) => {
     setTimeout(async () => { await fetchData(); toggleLoading('moneyForm', false); }, 2000);
 });
 
+personForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    toggleLoading('personForm', true, "Registering...");
+    await sendToSheet({ 
+        id: "USR-" + Date.now(),
+        name: document.getElementById('newName').value, 
+        role: document.getElementById('newRole').value, 
+        amount: 0, comment: "Registration", group: groupView.value 
+    });
+    personForm.reset();
+    setTimeout(async () => { await fetchData(); toggleLoading('personForm', false); }, 2000);
+});
+
 async function sendToSheet(payload) {
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({
-                id: payload.id, // ID is now pre-generated with TRX- or USR-
-                name: payload.name,
-                role: payload.role || "Student",
-                group: payload.group,
-                amount: payload.amount,
-                comment: payload.comment,
-                action: payload.action || 'ADD'
-            })
+            body: JSON.stringify({ ...payload, action: payload.action || 'ADD' })
         });
     } catch (e) { console.error("POST Error:", e); }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    handleGroupSwitch();
-    fetchData();
-});
+window.addEventListener('DOMContentLoaded', () => { handleGroupSwitch(); fetchData(); });
