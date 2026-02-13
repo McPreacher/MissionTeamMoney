@@ -218,3 +218,40 @@ button:disabled { background-color: #ccc; cursor: not-allowed; }
     pointer-events: none;
     filter: grayscale(1);
 }
+.history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.history-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding: 4px 0;
+    font-size: 0.85rem;
+}
+
+.history-list li:last-child {
+    border-bottom: none;
+}
+
+.history-text {
+    flex: 1;
+    padding-right: 5px;
+}
+
+.trx-delete {
+    background: transparent !important;
+    color: #999 !important;
+    padding: 0 5px !important;
+    font-weight: bold;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border: none;
+}
+
+.trx-delete:hover {
+    color: #d9534f !important;
+}

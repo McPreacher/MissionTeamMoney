@@ -1,4 +1,4 @@
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjsiDsEH6s7azrgCm8FEr-GOPCT2dPQwCRjjDX3l9FlAMJ_6u2Prczy2Amqinud8fOUA/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwDem4o4GnfHNorZPw06CZPjfPW5mDwnuRDa5Qqq-XkLhhh-pU9vqcw6IYoDYeX6zRU/exec";
 
 const moneyForm = document.getElementById('moneyForm');
 const personForm = document.getElementById('personForm');
@@ -10,7 +10,6 @@ let participantRoles = {};
 let lastData = []; 
 
 // --- AUTO-REFRESH (Conflict Prevention) ---
-// This keeps all open devices in sync every 30 seconds
 setInterval(() => {
     fetchData(); 
 }, 30000);
@@ -41,13 +40,12 @@ function toggleLoading(formId, isLoading, message = "Processing...") {
     }
 }
 
-// --- DATA FETCHING (Single Source of Truth) ---
+// --- DATA FETCHING ---
 async function fetchData() {
     try {
         const response = await fetch(GOOGLE_SCRIPT_URL);
         const data = await response.json();
         
-        // Only re-render if the data has actually changed to save performance
         if (JSON.stringify(data) !== JSON.stringify(lastData)) {
             lastData = data; 
             processAndRender(data);
@@ -74,6 +72,19 @@ async function handleGoalUpdate() {
 }
 
 // --- DELETE & RESET LOGIC ---
+
+// 1. Delete Specific Transaction
+async function deleteTransaction(id, comment) {
+    if (!confirm(`Delete this transaction: "${comment}"?`)) return;
+    
+    document.body.style.cursor = "wait";
+    await sendToSheet({ id: id, action: 'DELETE_TRANSACTION' });
+    
+    // Slight delay to allow Google Sheets to process before refresh
+    setTimeout(fetchData, 1000);
+}
+
+// 2. Delete Entire Person
 async function deletePerson(name) {
     if (!confirm(`Are you sure you want to delete all records for ${name} in the ${groupView.value} group?`)) return;
 
@@ -94,27 +105,25 @@ async function deletePerson(name) {
     }
 
     await sendToSheet({ name: name, action: 'DELETE', group: groupView.value });
-    
-    // Immediate sync after delete
     setTimeout(fetchData, 1500);
 }
 
 async function resetSystem() {
-    const confirm1 = confirm("⚠️ DANGER: You are about to erase ALL NAMES and ALL PAYMENTS from the entire system. This cannot be undone.");
+    const confirm1 = confirm("⚠️ DANGER: You are about to erase ALL NAMES and ALL PAYMENTS. This cannot be undone.");
     if (!confirm1) return;
 
-    const confirm2 = confirm("FINAL WARNING: Are you absolutely sure? This will clear everything for Seniors and Juniors to start the new year.");
+    const confirm2 = confirm("FINAL WARNING: Are you absolutely sure?");
     if (!confirm2) return;
 
     document.body.style.opacity = "0.5";
     document.body.style.pointerEvents = "none";
 
     await sendToSheet({ action: 'RESET' });
-
     alert("System has been reset. Starting fresh!");
     location.reload(); 
 }
 
+// --- RENDERING LOGIC ---
 function processAndRender(data) {
     const studentContainer = document.getElementById('studentCards');
     const chaperoneContainer = document.getElementById('chaperoneCards');
@@ -135,7 +144,7 @@ function processAndRender(data) {
         if (entryGroup !== currentGroup) return acc;
 
         if (!acc[entry.Name]) {
-            acc[entry.Name] = { role: entry.Role, total: 0, comments: [], lastId: 0 };
+            acc[entry.Name] = { role: entry.Role, total: 0, transactions: [], lastId: 0 };
             participantRoles[entry.Name] = entry.Role;
             participantCount++; 
         }
@@ -147,7 +156,12 @@ function processAndRender(data) {
         if (entry.id > acc[entry.Name].lastId) acc[entry.Name].lastId = entry.id;
         
         if (entry.Comment && entry.Comment !== "Registration") {
-            acc[entry.Name].comments.push(entry.Comment);
+            // Store transaction object for specific deletion
+            acc[entry.Name].transactions.push({
+                id: entry.id,
+                comment: entry.Comment,
+                amount: amount
+            });
         }
         return acc;
     }, {});
@@ -196,8 +210,13 @@ function processAndRender(data) {
                 <span class="${balanceClass}">$${person.total.toFixed(2)}</span> / $${goal}
             </div>
             <div class="history-section">
-                <ul style="font-size: 0.85rem; margin-top: 5px; padding-left: 20px; color: #444;">
-                    ${person.comments.map(c => `<li>${c}</li>`).join('') || '<li>Registered</li>'}
+                <ul class="history-list" style="list-style: none; padding: 0; margin: 0;">
+                    ${person.transactions.map(t => `
+                        <li style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 4px 0;">
+                            <span style="font-size: 0.85rem; color: #444;">${t.comment} ($${t.amount})</span>
+                            <button class="trx-delete" onclick="deleteTransaction('${t.id}', '${t.comment.replace(/'/g, "\\'")}')" style="background:transparent; border:none; color:#999; cursor:pointer; font-weight:bold; font-size:1.1rem; padding:0 5px;">⋮</button>
+                        </li>
+                    `).join('') || '<li style="font-size: 0.85rem; color: #444;">Registered</li>'}
                 </ul>
             </div>
         `;
@@ -207,6 +226,7 @@ function processAndRender(data) {
     });
 }
 
+// --- FORM SUBMISSIONS ---
 personForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('newName').value;
@@ -235,7 +255,7 @@ async function sendToSheet(payload) {
             method: 'POST',
             mode: 'no-cors',
             body: JSON.stringify({
-                id: Date.now(),
+                id: payload.id || Date.now(),
                 name: payload.name,
                 role: payload.role || "Student",
                 group: payload.group,
@@ -244,7 +264,6 @@ async function sendToSheet(payload) {
                 action: payload.action || 'ADD'
             })
         });
-        setTimeout(fetchData, 1000);
     } catch (e) { 
         console.error("POST Error:", e);
         alert("Sync failed. Check your connection.");
@@ -253,11 +272,10 @@ async function sendToSheet(payload) {
     }
 }
 
+// --- REPORT GENERATION ---
 function generateReport() {
     const group = groupView.value;
     const goal = parseFloat(globalGoalInput.value);
-    
-    // Group transactions by Person using lastData for full history
     const currentGroupData = lastData.filter(entry => (entry.Group || 'Seniors') === group);
     
     const reportData = currentGroupData.reduce((acc, entry) => {
@@ -278,53 +296,13 @@ function generateReport() {
     }, {});
 
     let reportWindow = window.open('', '_blank');
-    let html = `
-    <html>
-    <head>
-        <title>${group} Detailed Report</title>
-        <style>
-            body { font-family: sans-serif; padding: 20px; color: #333; }
-            h2 { color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 10px; }
-            .student-section { margin-bottom: 30px; page-break-inside: avoid; }
-            .student-header { background: #f4f4f9; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; border-left: 5px solid #333; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.9rem; }
-            th { background-color: #eee; }
-            .status-paid { color: #5cb85c; font-weight: bold; }
-            .status-pending { color: #d9534f; font-weight: bold; }
-        </style>
-    </head>
-    <body>
-        <h2>${group} Detailed Trip Report - ${new Date().toLocaleDateString()}</h2>
-        <p><strong>Group Goal:</strong> $${goal.toFixed(2)}</p>
-    `;
+    let html = `<html><head><title>${group} Report</title><style>body { font-family: sans-serif; padding: 20px; color: #333; } h2 { color: #2e7d32; border-bottom: 2px solid #2e7d32; } .student-section { margin-bottom: 30px; page-break-inside: avoid; } .student-header { background: #f4f4f9; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; border-left: 5px solid #333; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.9rem; } th { background-color: #eee; } .status-paid { color: #5cb85c; font-weight: bold; } .status-pending { color: #d9534f; font-weight: bold; }</style></head><body><h2>${group} Detailed Trip Report - ${new Date().toLocaleDateString()}</h2><p><strong>Group Goal:</strong> $${goal.toFixed(2)}</p>`;
 
-    const sortedNames = Object.keys(reportData).sort();
-
-    sortedNames.forEach(name => {
+    Object.keys(reportData).sort().forEach(name => {
         const person = reportData[name];
         const statusClass = person.total >= goal ? 'status-paid' : 'status-pending';
         const statusText = person.total >= goal ? 'PAID IN FULL' : 'BALANCE PENDING';
-
-        html += `
-            <div class="student-section">
-                <div class="student-header">
-                    <span>${name} (${person.role})</span>
-                    <span class="${statusClass}">Total: $${person.total.toFixed(2)} — ${statusText}</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr><th>Date</th><th>Donor / Comment</th><th>Amount</th></tr>
-                    </thead>
-                    <tbody>
-                        ${person.transactions.length > 0 ? 
-                            person.transactions.map(t => `
-                                <tr><td>${t.date}</td><td>${t.comment}</td><td>$${t.amount.toFixed(2)}</td></tr>
-                            `).join('') : '<tr><td colspan="3" style="text-align:center;">No transactions.</td></tr>'}
-                    </tbody>
-                </table>
-            </div>
-        `;
+        html += `<div class="student-section"><div class="student-header"><span>${name} (${person.role})</span><span class="${statusClass}">Total: $${person.total.toFixed(2)} — ${statusText}</span></div><table><thead><tr><th>Date</th><th>Donor / Comment</th><th>Amount</th></tr></thead><tbody>${person.transactions.length > 0 ? person.transactions.map(t => `<tr><td>${t.date}</td><td>${t.comment}</td><td>$${t.amount.toFixed(2)}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center;">No transactions.</td></tr>'}</tbody></table></div>`;
     });
 
     html += `</body></html>`;
