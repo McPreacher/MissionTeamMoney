@@ -1,4 +1,4 @@
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPX5NwrqpvlbrWfAIJlPcSqxc1N6_YTe2V8DxM_YmJN-XKpWGkt8EsP_DdYv8RAG9HfQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyIuzCSRmEijv2cI1vrgpF4I-0SfqUvXx8iLnqVhX4dCzJfhpk2z2IXHqnU0E9bbWjhnQ/exec";
 
 const moneyForm = document.getElementById('moneyForm');
 const personForm = document.getElementById('personForm');
